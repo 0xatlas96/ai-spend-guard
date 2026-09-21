@@ -599,3 +599,50 @@ test("blocked attempts are observable without creating reservations", async () =
   const status = await firewall.status();
   assert.equal(status.openReservations, 0);
 });
+
+
+test("progressive top-up is atomically blocked without losing the original reservation", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      policies: [
+        {
+          id: "global",
+          window: "lifetime",
+          limitUsd: 1,
+          maxOperationUsd: 0.8,
+        },
+      ],
+    },
+    { now: fixedNow }
+  );
+
+  const first = await firewall.reserve({
+    context: { provider: "openai", resource: "llm" },
+    estimatedCostUsd: 0.6,
+  });
+  const second = await firewall.reserve({
+    context: { provider: "search", resource: "search" },
+    estimatedCostUsd: 0.3,
+  });
+
+  await assert.rejects(() => first.topUp(0.2), SpendPolicyError);
+  assert.equal(first.estimatedCostUsd, 0.6);
+
+  let status = await firewall.status();
+  assert.ok(Math.abs(status.policies[0].usage.reservedUsd - 0.9) < 1e-9);
+
+  const shrunk = await first.resize(0.4);
+  assert.equal(shrunk.previousEstimatedCostUsd, 0.6);
+  assert.equal(first.estimatedCostUsd, 0.4);
+
+  const grown = await first.topUp(0.2);
+  assert.ok(grown.decision);
+  assert.equal(first.estimatedCostUsd, 0.6);
+
+  status = await firewall.status();
+  assert.ok(Math.abs(status.policies[0].usage.reservedUsd - 0.9) < 1e-9);
+
+  await first.release();
+  await second.release();
+});
