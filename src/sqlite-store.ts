@@ -115,31 +115,23 @@ export class NodeSqliteStore implements LedgerStore {
     const statement = this.db.prepare(
       "SELECT payload FROM ai_spend_guard_state WHERE id = 1"
     );
-    try {
-      const row = statement.get() as { payload?: unknown } | undefined;
-      if (!row || typeof row.payload !== "string") return emptyLedger();
-      const parsed = JSON.parse(row.payload) as LedgerState;
-      if (
-        parsed.version !== 1 ||
-        !parsed.reservations ||
-        !Array.isArray(parsed.charges)
-      ) {
-        throw new Error("Unsupported or invalid SQLite ledger format.");
-      }
-      return structuredClone(parsed);
-    } finally {
-      statement.close();
+    const row = statement.get() as { payload?: unknown } | undefined;
+    if (!row || typeof row.payload !== "string") return emptyLedger();
+    const parsed = JSON.parse(row.payload) as LedgerState;
+    if (
+      parsed.version !== 1 ||
+      !parsed.reservations ||
+      !Array.isArray(parsed.charges)
+    ) {
+      throw new Error("Unsupported or invalid SQLite ledger format.");
     }
+    return structuredClone(parsed);
   }
 
   private save(state: LedgerState): void {
     const statement = this.db.prepare(
       "UPDATE ai_spend_guard_state SET payload = ? WHERE id = 1"
     );
-    try {
-      statement.run(JSON.stringify(state));
-    } finally {
-      statement.close();
-    }
+    statement.run(JSON.stringify(state));
   }
 }
