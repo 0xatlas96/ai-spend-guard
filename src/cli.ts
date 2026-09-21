@@ -98,10 +98,55 @@ async function main(): Promise<void> {
 
   if (command === "init") {
     const force = has("--force");
+    const generatedConfig = structuredClone(starterFirewallConfig);
+    const daily = optionalNum("--daily");
+    const monthly = optionalNum("--monthly");
+    const maxCall = optionalNum("--max-call");
+    const maxConcurrent = optionalNum("--max-concurrent");
+    const perUserDaily = optionalNum("--per-user-daily");
+    const perProjectMonthly = optionalNum("--per-project-monthly");
+
+    const dailyPolicy = generatedConfig.policies.find(
+      (policy) => policy.id === "global-daily-hard-cap"
+    );
+    const monthlyPolicy = generatedConfig.policies.find(
+      (policy) => policy.id === "global-monthly-hard-cap"
+    );
+    if (daily !== undefined && dailyPolicy) dailyPolicy.limitUsd = daily;
+    if (monthly !== undefined && monthlyPolicy) monthlyPolicy.limitUsd = monthly;
+    if (maxCall !== undefined && dailyPolicy) dailyPolicy.maxOperationUsd = maxCall;
+    if (maxConcurrent !== undefined && dailyPolicy) {
+      dailyPolicy.maxConcurrent = Math.floor(maxConcurrent);
+    }
+
+    if (perUserDaily !== undefined) {
+      generatedConfig.policies.push({
+        id: "per-user-daily",
+        groupBy: ["userId"],
+        window: "utc-day",
+        limitUsd: perUserDaily,
+      });
+      generatedConfig.requiredContext = [
+        ...new Set([...(generatedConfig.requiredContext ?? []), "userId"]),
+      ];
+    }
+
+    if (perProjectMonthly !== undefined) {
+      generatedConfig.policies.push({
+        id: "per-project-monthly",
+        groupBy: ["projectId"],
+        window: "utc-month",
+        limitUsd: perProjectMonthly,
+      });
+      generatedConfig.requiredContext = [
+        ...new Set([...(generatedConfig.requiredContext ?? []), "projectId"]),
+      ];
+    }
+
     const targets = [
       {
         path: "ai-spend-firewall.config.json",
-        value: starterFirewallConfig,
+        value: generatedConfig,
       },
       {
         path: "spend-plan.json",
