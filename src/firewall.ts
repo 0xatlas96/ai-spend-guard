@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DuplicateOperationError, IdempotencyConflictError, SpendPolicyError } from "./firewall-errors.js";
+import { DuplicateOperationError, IdempotencyConflictError, MissingSpendContextError, SpendPolicyError } from "./firewall-errors.js";
 import { normalizeContext, spendFingerprint } from "./fingerprint.js";
 import {
   contextForReservation,
@@ -25,6 +25,7 @@ import type {
   FirewallSettlementResult,
   FirewallStatus,
   FirewallWarningEvent,
+  SpendGroupField,
   SpendPolicyMatch,
   SpendPlan,
   SpendPlanResult,
@@ -388,9 +389,17 @@ export class SpendFirewall {
 
   private normalizeContextWithProvider(input: SpendContext | undefined): SpendContext {
     const context = normalizeContext(input);
-    return context.provider
+    const normalized = context.provider
       ? context
       : { ...context, provider: this.config.defaultProvider ?? "custom" };
+
+    const missing = (this.config.requiredContext ?? []).filter(
+      (field) => !hasContextField(normalized, field)
+    );
+    if (missing.length) {
+      throw new MissingSpendContextError([...missing]);
+    }
+    return normalized;
   }
 
   private async emitDecision(decision: FirewallDecision): Promise<void> {
@@ -449,4 +458,32 @@ function contextToMatch(context: SpendContext): SpendPolicyMatch {
     ...(context.environment ? { environment: context.environment } : {}),
     ...(context.tags ? { tags: context.tags } : {}),
   };
+}
+
+function hasContextField(context: SpendContext, field: SpendGroupField): boolean {
+  if (field.startsWith("tag:")) {
+    return Boolean(context.tags?.[field.slice(4)]);
+  }
+  switch (field) {
+    case "provider":
+      return Boolean(context.provider);
+    case "model":
+      return Boolean(context.model);
+    case "resource":
+      return Boolean(context.resource);
+    case "projectId":
+      return Boolean(context.projectId);
+    case "userId":
+      return Boolean(context.userId);
+    case "sessionId":
+      return Boolean(context.sessionId);
+    case "agentId":
+      return Boolean(context.agentId);
+    case "route":
+      return Boolean(context.route);
+    case "environment":
+      return Boolean(context.environment);
+    default:
+      return false;
+  }
 }
