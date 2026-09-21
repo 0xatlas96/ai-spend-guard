@@ -1,0 +1,57 @@
+{
+  "name": "ai-spend-guard",
+  "version": "0.1.0",
+  "description": "Open-source hard budget guard for AI APIs — prevent unexpected LLM spend before it happens.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "ai-spend-guard": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "ci": "npm run typecheck && npm test",
+    "prepublishOnly": "npm run ci"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "openai",
+    "anthropic",
+    "gemini",
+    "llm",
+    "ai",
+    "cost-control",
+    "budget",
+    "spend-limit",
+    "developer-tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xatlas96/ai-spend-guard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/0xatlas96/ai-spend-guard/issues"
+  },
+  "homepage": "https://github.com/0xatlas96/ai-spend-guard#readme",
+  "license": "MIT",
+  "author": "0xatlas96",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
