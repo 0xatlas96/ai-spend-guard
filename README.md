@@ -1,5 +1,8 @@
 # AI Spend Guard
 
+[![CI](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/codeql.yml/badge.svg)](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/codeql.yml)
+
 **Stop unexpected AI API spend before the request leaves your app.**
 
 AI Spend Guard is a provider-agnostic, local-first budget firewall for LLM and AI API calls. It reserves a conservative cost estimate **before** a paid request runs, counts concurrent reservations against the same budget, and blocks new work when a daily, monthly, provider, or per-request ceiling would be exceeded.
