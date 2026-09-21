@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dashboardHtml } from "./dashboard.js";
@@ -68,7 +69,7 @@ export async function startSpendGuardServer(
         });
       }
 
-      const url = new URL(request.url ?? "/", `http://${host}`);
+      const url = new URL(request.url ?? "/", `http://${formatHost(host)}`);
 
       if (request.method === "GET" && url.pathname === "/openapi.json") {
         return json(response, 200, spendGuardOpenApiDocument());
@@ -217,12 +218,10 @@ function authorized(request: IncomingMessage, token: string | undefined): boolea
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let mismatch = 0;
-  for (let index = 0; index < a.length; index += 1) {
-    mismatch |= a.charCodeAt(index) ^ b.charCodeAt(index);
-  }
-  return mismatch === 0;
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
 }
 
 async function readJson<T>(
