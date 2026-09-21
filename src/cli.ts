@@ -5,6 +5,8 @@ import {
   loadFirewallConfig,
 } from "./config.js";
 import { inspectFirewallConfig } from "./doctor.js";
+import { verifyBudgetContract } from "./contract.js";
+import type { BudgetContract } from "./contract.js";
 import { SpendPolicyError } from "./firewall-errors.js";
 import { startSpendGuardServer } from "./server.js";
 import { runPolicyTests } from "./policy-tests.js";
@@ -140,6 +142,42 @@ async function main(): Promise<void> {
     console.log(
       "Next: ai-spend-guard doctor && ai-spend-guard test-policies --file policy-tests.json && ai-spend-guard plan --file spend-plan.json"
     );
+    return;
+  }
+
+  if (command === "verify-contract") {
+    const file = required("--file");
+    const raw = await readFile(file, "utf8");
+    const contract = JSON.parse(raw) as BudgetContract;
+    const report = await verifyBudgetContract(contract);
+
+    if (has("--json")) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(
+        `Budget contract ${report.contractName ?? file}: ${report.passed ? "PASS" : "FAIL"}`
+      );
+      for (const finding of report.doctor.findings) {
+        console.log(
+          `  DOCTOR ${finding.severity.toUpperCase()} ${finding.code}: ${finding.message}`
+        );
+      }
+      if (report.policyTests) {
+        console.log(
+          `  POLICY TESTS: ${report.policyTests.passedCases} passed, ${report.policyTests.failedCases} failed`
+        );
+      }
+      for (const plan of report.plans) {
+        console.log(
+          `  PLAN ${plan.id}: ${plan.passed ? "PASS" : "FAIL"} · ${plan.result.totalUsd.toFixed(6)} · ${plan.result.totalCalls} calls`
+        );
+      }
+      for (const failure of report.failures) {
+        console.log(`  FAIL: ${failure}`);
+      }
+    }
+
+    if (!report.passed) process.exitCode = 2;
     return;
   }
 
