@@ -33,6 +33,7 @@ export {
   AiSpendGuardError,
   BudgetExceededError,
   ReservationNotFoundError,
+  SpendReconciliationRequiredError,
   UnknownEstimateError,
 } from "./errors.js";
 export {
