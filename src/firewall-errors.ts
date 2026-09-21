@@ -52,3 +52,12 @@ export class PlanViolationError extends AiSpendGuardError {
     this.violations = violations;
   }
 }
+
+export class MissingSpendContextError extends AiSpendGuardError {
+  readonly fields: string[];
+
+  constructor(fields: string[]) {
+    super(`Missing required spend context: ${fields.join(", ")}.`);
+    this.fields = fields;
+  }
+}
