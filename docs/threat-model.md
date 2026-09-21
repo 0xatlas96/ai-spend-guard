@@ -28,7 +28,7 @@ Outstanding reservations count toward projected spend. Two requests therefore ca
 
 ### Application retries
 
-Retries are safe only when each retry receives its own reservation or future idempotency helpers are used. The project does not currently deduplicate arbitrary retries.
+Use a stable `idempotencyKey` for paid side effects that may be retried. Reusing the same key with the same spend intent is blocked as a duplicate; reusing it for a different spend intent is rejected as a conflict. Result replay/deduplication remains the application's responsibility.
 
 ### Store write failures
 
@@ -50,7 +50,7 @@ Taxes, rounding, batch discounts, cached-token rules, credits, asynchronous usag
 
 ### Distributed transactions
 
-`JsonFileStore` is a single-host reference store. Shared/serverless/multi-host deployments need a transactional database-backed implementation of `LedgerStore`.
+`JsonFileStore` and `NodeSqliteStore` are single-host stores. Shared/serverless/multi-host deployments can use the built-in `PostgresStore`, which serializes admission changes for a namespace with `SELECT ... FOR UPDATE`. Custom distributed stores must preserve the same atomic read/evaluate/reserve contract.
 
 ## Defense in depth
 
@@ -66,3 +66,14 @@ This intentionally prefers temporary budget lock-up over silently forgetting a p
 `{ onOperationError: "release" }` is available only for operation contracts where a thrown error is guaranteed to occur before billable dispatch.
 
 Failures during actual-cost calculation or settlement also keep the reservation rather than automatically freeing budget.
+
+## HTTP sidecar boundary
+
+The built-in sidecar is a convenience control plane, not an internet-facing API gateway. Loopback is unauthenticated by default; non-loopback binds require a bearer token. Operators are responsible for network isolation and TLS when traffic leaves the host.
+
+The sidecar deliberately exposes no provider credentials and does not proxy provider prompts/responses.
+
+## AI SDK middleware boundary
+
+The Vercel AI SDK middleware reserves before `doGenerate`/`doStream`. Successful streaming calls settle only on the final finish/usage event. Provider errors, cancelled streams, or streams that end without finish usage leave the reservation open for reconciliation unless the operator explicitly opts into release-on-error behavior.
+
