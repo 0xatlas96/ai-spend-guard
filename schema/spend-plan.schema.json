@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/0xatlas96/ai-spend-guard/main/schema/spend-plan.schema.json",
+  "title": "AI Spend Guard Spend Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operations"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string" },
+    "operations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "estimatedCostUsd"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "estimatedCostUsd": { "type": "number", "minimum": 0 },
+          "count": { "type": "integer", "minimum": 0, "default": 1 },
+          "concurrent": { "type": "integer", "minimum": 0, "default": 1 },
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "provider": { "type": "string" },
+              "model": { "type": "string" },
+              "resource": { "type": "string" },
+              "projectId": { "type": "string" },
+              "userId": { "type": "string" },
+              "sessionId": { "type": "string" },
+              "agentId": { "type": "string" },
+              "route": { "type": "string" },
+              "environment": { "type": "string" },
+              "tags": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
