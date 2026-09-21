@@ -59,3 +59,10 @@ jobs:
           node-version: 22.x
       - run: npm install
       - run: npm run ci
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Build hardened sidecar image
+        run: docker build --tag ai-spend-guard:ci .
