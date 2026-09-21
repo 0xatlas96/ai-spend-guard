@@ -1,0 +1,45 @@
+{
+  "name": "production-day worst case",
+  "operations": [
+    {
+      "name": "customer-support-turn",
+      "context": {
+        "provider": "openai",
+        "model": "example-model",
+        "resource": "llm",
+        "projectId": "support",
+        "userId": "example-user",
+        "route": "/api/chat",
+        "environment": "production"
+      },
+      "estimatedCostUsd": 0.02,
+      "count": 20,
+      "concurrent": 5
+    },
+    {
+      "name": "voice-reply",
+      "context": {
+        "provider": "tts-provider",
+        "resource": "audio",
+        "projectId": "support",
+        "userId": "example-user",
+        "environment": "production"
+      },
+      "estimatedCostUsd": 0.01,
+      "count": 20,
+      "concurrent": 3
+    },
+    {
+      "name": "marketing-video",
+      "context": {
+        "provider": "video-provider",
+        "resource": "video",
+        "projectId": "marketing",
+        "environment": "production"
+      },
+      "estimatedCostUsd": 0.8,
+      "count": 2,
+      "concurrent": 1
+    }
+  ]
+}
