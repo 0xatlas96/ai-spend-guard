@@ -45,6 +45,20 @@ export interface SpendPolicy {
   warnAt?: number[];
 }
 
+export interface FirewallWarningEvent {
+  policyId: string;
+  threshold: number;
+  projectedUsd: number;
+  limitUsd: number;
+  context: SpendContext;
+}
+
+export interface FirewallOptions {
+  now?: () => Date;
+  onDecision?: (decision: FirewallDecision) => void | Promise<void>;
+  onWarning?: (event: FirewallWarningEvent) => void | Promise<void>;
+}
+
 export interface FirewallConfig {
   policies: SpendPolicy[];
   /** Deny missing estimates by default; set allow only for intentionally unmetered calls. */
