@@ -6,6 +6,7 @@ import {
 } from "./config.js";
 import { inspectFirewallConfig } from "./doctor.js";
 import { SpendPolicyError } from "./firewall-errors.js";
+import { startSpendGuardServer } from "./server.js";
 import { runPolicyTests } from "./policy-tests.js";
 import type { PolicyTestSuite } from "./policy-tests.js";
 import type {
@@ -191,6 +192,48 @@ async function main(): Promise<void> {
   }
 
   const firewall = await createFirewallFromConfig(configPath());
+
+  if (command === "serve") {
+    const host = value("--host") ?? "127.0.0.1";
+    const rawPort = value("--port") ?? "8787";
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new Error("--port must be an integer between 0 and 65535");
+    }
+
+    const running = await startSpendGuardServer(firewall, {
+      host,
+      port,
+      token: process.env.AI_SPEND_GUARD_TOKEN,
+      dashboard: !has("--no-dashboard"),
+      log: (message) => console.error(message),
+    });
+
+    console.log(`AI Spend Guard server: ${running.url}`);
+    if (host !== "127.0.0.1" && host !== "::1" && host !== "localhost") {
+      console.log("Remote bind protected by AI_SPEND_GUARD_TOKEN.");
+    }
+    if (!has("--no-dashboard")) {
+      console.log(`Dashboard: ${running.url}/`);
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let closing = false;
+      const close = async () => {
+        if (closing) return;
+        closing = true;
+        try {
+          await running.close();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      process.once("SIGINT", () => void close());
+      process.once("SIGTERM", () => void close());
+    });
+    return;
+  }
 
   if (command === "status") {
     const status = await firewall.status();
