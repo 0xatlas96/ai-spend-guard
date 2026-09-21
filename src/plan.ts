@@ -5,8 +5,17 @@ import type {
   SpendPlan,
   SpendPlanResult,
   SpendPolicy,
+  SpendPolicyGroup,
 } from "./firewall-types.js";
-import { matchesPolicy, policyUsage } from "./policy.js";
+import { matchesPolicy, policyGroup, policyUsage } from "./policy.js";
+
+type NormalizedPlanOperation = {
+  name: string;
+  context: SpendContext;
+  estimatedCostUsd: number;
+  count: number;
+  concurrent: number;
+};
 
 export function simulateSpendPlan(
   state: LedgerState,
@@ -14,27 +23,41 @@ export function simulateSpendPlan(
   plan: SpendPlan,
   now: Date
 ): SpendPlanResult {
-  const normalized = plan.operations.map((operation) => {
+  const normalized: NormalizedPlanOperation[] = plan.operations.map((operation) => {
     if (!operation.name?.trim()) throw new Error("Every plan operation needs a name.");
     if (!Number.isFinite(operation.estimatedCostUsd) || operation.estimatedCostUsd < 0) {
-      throw new RangeError(`Plan operation "${operation.name}" estimatedCostUsd must be non-negative.`);
+      throw new RangeError(
+        `Plan operation "${operation.name}" estimatedCostUsd must be non-negative.`
+      );
     }
     const count = operation.count ?? 1;
     const concurrent = operation.concurrent ?? 1;
     if (!Number.isInteger(count) || count < 0) {
-      throw new RangeError(`Plan operation "${operation.name}" count must be a non-negative integer.`);
+      throw new RangeError(
+        `Plan operation "${operation.name}" count must be a non-negative integer.`
+      );
     }
     if (!Number.isInteger(concurrent) || concurrent < 0) {
-      throw new RangeError(`Plan operation "${operation.name}" concurrent must be a non-negative integer.`);
+      throw new RangeError(
+        `Plan operation "${operation.name}" concurrent must be a non-negative integer.`
+      );
     }
     if (concurrent > count && count !== 0) {
-      throw new RangeError(`Plan operation "${operation.name}" concurrent cannot exceed count.`);
+      throw new RangeError(
+        `Plan operation "${operation.name}" concurrent cannot exceed count.`
+      );
     }
     const context: SpendContext = {
       ...(operation.context ?? {}),
       provider: operation.context?.provider ?? config.defaultProvider ?? "custom",
     };
-    return { ...operation, count, concurrent, context };
+    return {
+      name: operation.name,
+      context,
+      estimatedCostUsd: operation.estimatedCostUsd,
+      count,
+      concurrent,
+    };
   });
 
   const byProvider: Record<string, number> = {};
@@ -52,37 +75,35 @@ export function simulateSpendPlan(
     byResource[resource] = (byResource[resource] ?? 0) + subtotal;
   }
 
-  const policyResults = config.policies.map((policy) => {
-    const current = policyUsage(state, policy, now);
-    const matching = normalized.filter((operation) => matchesPolicy(operation.context, policy.match));
-    const additionalUsd = matching.reduce(
-      (sum, operation) => sum + operation.estimatedCostUsd * operation.count,
-      0
+  const policyResults = config.policies.flatMap((policy) => {
+    const matching = normalized.filter((operation) =>
+      matchesPolicy(operation.context, policy.match)
     );
-    const additionalCalls = matching.reduce((sum, operation) => sum + operation.count, 0);
-    const worstCaseConcurrent = matching.reduce(
-      (sum, operation) => sum + operation.concurrent,
-      0
+    if (!policy.groupBy?.length) {
+      return [
+        buildPolicyResult(state, policy, matching, now),
+      ];
+    }
+
+    const groups = new Map<
+      string,
+      { group: SpendPolicyGroup; operations: NormalizedPlanOperation[] }
+    >();
+
+    for (const operation of matching) {
+      const group = policyGroup(policy, operation.context);
+      if (!group) continue;
+      const existing = groups.get(group.key);
+      if (existing) {
+        existing.operations.push(operation);
+      } else {
+        groups.set(group.key, { group, operations: [operation] });
+      }
+    }
+
+    return [...groups.values()].map(({ group, operations }) =>
+      buildPolicyResult(state, policy, operations, now, group)
     );
-    const projectedUsd = current.projectedUsd + additionalUsd;
-    const projectedCalls = current.projectedCalls + additionalCalls;
-    const violations = planViolations(
-      policy,
-      current.concurrent,
-      matching,
-      projectedUsd,
-      projectedCalls,
-      worstCaseConcurrent
-    );
-    return {
-      policyId: policy.id,
-      additionalUsd,
-      additionalCalls,
-      worstCaseConcurrent,
-      projectedUsd,
-      projectedCalls,
-      violations,
-    };
   });
 
   const allViolations = policyResults.flatMap((entry) => entry.violations);
@@ -98,14 +119,54 @@ export function simulateSpendPlan(
   };
 }
 
+function buildPolicyResult(
+  state: LedgerState,
+  policy: SpendPolicy,
+  matching: NormalizedPlanOperation[],
+  now: Date,
+  group?: SpendPolicyGroup
+) {
+  const groupContext = matching[0]?.context;
+  const current = policyUsage(state, policy, now, groupContext);
+  const additionalUsd = matching.reduce(
+    (sum, operation) => sum + operation.estimatedCostUsd * operation.count,
+    0
+  );
+  const additionalCalls = matching.reduce(
+    (sum, operation) => sum + operation.count,
+    0
+  );
+  const worstCaseConcurrent = matching.reduce(
+    (sum, operation) => sum + operation.concurrent,
+    0
+  );
+  const projectedUsd = current.projectedUsd + additionalUsd;
+  const projectedCalls = current.projectedCalls + additionalCalls;
+  const violations = planViolations(
+    policy,
+    current.concurrent,
+    matching,
+    projectedUsd,
+    projectedCalls,
+    worstCaseConcurrent
+  );
+
+  return {
+    policyId: policy.id,
+    ...(group ? { group } : {}),
+    additionalUsd,
+    additionalCalls,
+    worstCaseConcurrent,
+    projectedUsd,
+    projectedCalls,
+    violations,
+  };
+}
+
 function planViolations(
   policy: SpendPolicy,
   currentConcurrent: number,
-  matching: Array<{
-    estimatedCostUsd: number;
-    count: number;
-    concurrent: number;
-  }>,
+  matching: NormalizedPlanOperation[],
   projectedUsd: number,
   projectedCalls: number,
   worstCaseConcurrent: number
@@ -113,7 +174,10 @@ function planViolations(
   const mode = policy.mode ?? "enforce";
   const violations: PolicyViolation[] = [];
 
-  if (policy.limitUsd !== undefined && projectedUsd > policy.limitUsd + Number.EPSILON) {
+  if (
+    policy.limitUsd !== undefined &&
+    projectedUsd > policy.limitUsd + Number.EPSILON
+  ) {
     violations.push({
       policyId: policy.id,
       mode,
@@ -124,7 +188,10 @@ function planViolations(
     });
   }
 
-  if (policy.limitCalls !== undefined && projectedCalls > policy.limitCalls) {
+  if (
+    policy.limitCalls !== undefined &&
+    projectedCalls > policy.limitCalls
+  ) {
     violations.push({
       policyId: policy.id,
       mode,
