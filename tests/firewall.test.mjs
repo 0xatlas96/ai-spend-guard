@@ -7,6 +7,7 @@ import {
   MissingSpendContextError,
   SpendFirewall,
   SpendPolicyError,
+  SpendReconciliationRequiredError,
   inspectFirewallConfig,
   runPolicyTests,
 } from "../dist/index.js";
@@ -464,4 +465,104 @@ test("doctor warns when grouped identity fields are not required", () => {
       (finding) => finding.code === "group-context-not-required"
     )
   );
+});
+
+
+test("protect keeps an ambiguous failed operation reserved by default", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      policies: [{ id: "global", limitUsd: 1 }],
+    },
+    { now: fixedNow }
+  );
+
+  let error;
+  try {
+    await firewall.protect(
+      {
+        context: { provider: "openai", resource: "llm" },
+        estimatedCostUsd: 0.2,
+      },
+      async () => {
+        throw new Error("network timeout after request dispatch");
+      },
+      async () => 0.1
+    );
+  } catch (caught) {
+    error = caught;
+  }
+
+  assert.ok(error instanceof SpendReconciliationRequiredError);
+  assert.equal(error.phase, "operation");
+
+  const status = await firewall.status();
+  assert.equal(status.openReservations, 1);
+  assert.equal(status.policies[0].usage.reservedUsd, 0.2);
+
+  await firewall.release(error.reservationId);
+});
+
+test("protect can explicitly release when operation failures are guaranteed unbilled", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      policies: [{ id: "global", limitUsd: 1 }],
+    },
+    { now: fixedNow }
+  );
+
+  await assert.rejects(
+    () =>
+      firewall.protect(
+        {
+          context: { provider: "openai", resource: "llm" },
+          estimatedCostUsd: 0.2,
+        },
+        async () => {
+          throw new Error("local validation failed before provider dispatch");
+        },
+        async () => 0.1,
+        { onOperationError: "release" }
+      ),
+    /local validation failed/
+  );
+
+  const status = await firewall.status();
+  assert.equal(status.openReservations, 0);
+  assert.equal(status.policies[0].usage.reservedUsd, 0);
+});
+
+test("protect keeps reservation when actual-cost calculation fails after provider success", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      policies: [{ id: "global", limitUsd: 1 }],
+    },
+    { now: fixedNow }
+  );
+
+  let error;
+  try {
+    await firewall.protect(
+      {
+        context: { provider: "openai", resource: "llm" },
+        estimatedCostUsd: 0.2,
+      },
+      async () => ({ ok: true }),
+      async () => {
+        throw new Error("usage response shape changed");
+      }
+    );
+  } catch (caught) {
+    error = caught;
+  }
+
+  assert.ok(error instanceof SpendReconciliationRequiredError);
+  assert.equal(error.phase, "cost-calculation");
+
+  const status = await firewall.status();
+  assert.equal(status.openReservations, 1);
+
+  await firewall.release(error.reservationId);
 });
