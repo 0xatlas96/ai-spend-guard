@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/0xatlas96/ai-spend-guard/main/schema/budget-contract.schema.json",
+  "title": "AI Spend Guard Budget Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "firewall"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1 },
+    "name": { "type": "string" },
+    "description": { "type": "string" },
+    "now": { "type": "string", "format": "date-time" },
+    "doctorWarningsAsErrors": { "type": "boolean" },
+    "firewall": { "$ref": "./ai-spend-firewall.schema.json" },
+    "policyTests": { "$ref": "./policy-tests.schema.json" },
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "plan"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "maxTotalUsd": { "type": "number", "minimum": 0 },
+          "plan": { "$ref": "./spend-plan.schema.json" }
+        }
+      }
+    }
+  }
+}
