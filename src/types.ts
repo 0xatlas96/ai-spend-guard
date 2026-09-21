@@ -1,5 +1,31 @@
 export type ProviderName = string;
 
+export type SpendResource =
+  | "llm"
+  | "embedding"
+  | "image"
+  | "audio"
+  | "video"
+  | "search"
+  | "tool"
+  | "api"
+  | "storage"
+  | "other";
+
+/** Multi-dimensional context used by the universal financial firewall. */
+export interface SpendContext {
+  provider?: string;
+  model?: string;
+  resource?: SpendResource | string;
+  projectId?: string;
+  userId?: string;
+  sessionId?: string;
+  agentId?: string;
+  route?: string;
+  environment?: string;
+  tags?: Record<string, string>;
+}
+
 export interface BudgetLimit {
   /** Maximum actual + reserved spend in the current UTC day. */
   dailyUsd?: number;
@@ -48,6 +74,12 @@ export interface ReservationRecord {
   estimatedCostUsd: number;
   requestId?: string;
   metadata?: Record<string, unknown>;
+  /** Optional richer context used by SpendFirewall. */
+  context?: SpendContext;
+  /** Optional caller-owned idempotency key used by SpendFirewall. */
+  idempotencyKey?: string;
+  /** Stable request fingerprint for idempotency conflict detection. */
+  fingerprint?: string;
   createdAt: string;
 }
 
@@ -57,6 +89,10 @@ export interface ChargeRecord {
   costUsd: number;
   requestId?: string;
   metadata?: Record<string, unknown>;
+  /** Optional richer context used by SpendFirewall. */
+  context?: SpendContext;
+  idempotencyKey?: string;
+  fingerprint?: string;
   createdAt: string;
   reservationId?: string;
   estimateUsd?: number;
