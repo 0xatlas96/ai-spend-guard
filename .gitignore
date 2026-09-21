@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.ai-spend-guard/
+*.log
+.DS_Store
+coverage/
