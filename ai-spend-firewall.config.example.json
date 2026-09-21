@@ -1,0 +1,69 @@
+{
+  "unknownEstimate": "deny",
+  "defaultProvider": "custom",
+  "staleAfterMs": 3600000,
+  "ledgerPath": ".ai-spend-guard/firewall-ledger.json",
+  "policies": [
+    {
+      "id": "global-monthly-hard-cap",
+      "description": "Nothing in this app may push total AI spend above $50/month.",
+      "window": "utc-month",
+      "limitUsd": 50,
+      "limitCalls": 50000,
+      "maxOperationUsd": 2,
+      "maxConcurrent": 25,
+      "warnAt": [0.8, 0.95]
+    },
+    {
+      "id": "every-user-daily-budget",
+      "description": "Each user gets an independent $1/day budget.",
+      "groupBy": ["userId"],
+      "window": "utc-day",
+      "limitUsd": 1,
+      "limitCalls": 500
+    },
+    {
+      "id": "every-project-monthly-budget",
+      "description": "Each project gets an independent $20/month budget.",
+      "groupBy": ["projectId"],
+      "window": "utc-month",
+      "limitUsd": 20
+    },
+    {
+      "id": "agent-run-budget",
+      "description": "Each agent session gets a small rolling budget and concurrency cap.",
+      "match": {
+        "resource": ["llm", "tool", "search"]
+      },
+      "groupBy": ["agentId", "sessionId"],
+      "window": {
+        "rollingMs": 3600000
+      },
+      "limitUsd": 2,
+      "limitCalls": 100,
+      "maxConcurrent": 8
+    },
+    {
+      "id": "video-generation-cap",
+      "description": "Video calls are expensive, so keep individual calls small.",
+      "match": {
+        "resource": "video"
+      },
+      "window": "utc-day",
+      "limitUsd": 10,
+      "maxOperationUsd": 1.5,
+      "maxConcurrent": 2
+    },
+    {
+      "id": "new-policy-shadow-mode",
+      "description": "Example of testing a stricter limit without blocking production yet.",
+      "match": {
+        "environment": "production",
+        "resource": "llm"
+      },
+      "window": "utc-day",
+      "limitUsd": 3,
+      "mode": "observe"
+    }
+  ]
+}
