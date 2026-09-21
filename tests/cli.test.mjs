@@ -57,3 +57,51 @@ test("init scaffolds a self-validating starter project without overwriting by de
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+
+test("init budget flags generate scoped policies and required context", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "ai-spend-guard-guided-init-"));
+
+  try {
+    await run(
+      [
+        "init",
+        "--daily", "7",
+        "--monthly", "70",
+        "--max-call", "0.75",
+        "--max-concurrent", "12",
+        "--per-user-daily", "1.5",
+        "--per-project-monthly", "25"
+      ],
+      dir
+    );
+
+    const config = JSON.parse(
+      await readFile(join(dir, "ai-spend-firewall.config.json"), "utf8")
+    );
+
+    const daily = config.policies.find(
+      (policy) => policy.id === "global-daily-hard-cap"
+    );
+    const monthly = config.policies.find(
+      (policy) => policy.id === "global-monthly-hard-cap"
+    );
+    const user = config.policies.find(
+      (policy) => policy.id === "per-user-daily"
+    );
+    const project = config.policies.find(
+      (policy) => policy.id === "per-project-monthly"
+    );
+
+    assert.equal(daily.limitUsd, 7);
+    assert.equal(daily.maxOperationUsd, 0.75);
+    assert.equal(daily.maxConcurrent, 12);
+    assert.equal(monthly.limitUsd, 70);
+    assert.equal(user.limitUsd, 1.5);
+    assert.equal(project.limitUsd, 25);
+    assert.ok(config.requiredContext.includes("userId"));
+    assert.ok(config.requiredContext.includes("projectId"));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
