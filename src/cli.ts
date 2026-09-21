@@ -17,6 +17,7 @@ import type {
   SpendRequest,
 } from "./firewall-types.js";
 import type { SpendContext } from "./types.js";
+import type { SpendGroupField } from "./firewall-types.js";
 import {
   starterFirewallConfig,
   starterPolicyTests,
@@ -136,9 +137,11 @@ async function main(): Promise<void> {
         window: "utc-day",
         limitUsd: perUserDaily,
       });
-      generatedConfig.requiredContext = [
-        ...new Set([...(generatedConfig.requiredContext ?? []), "userId"]),
-      ];
+      const required = new Set<SpendGroupField>(
+        generatedConfig.requiredContext ?? []
+      );
+      required.add("userId");
+      generatedConfig.requiredContext = [...required];
     }
 
     if (perProjectMonthly !== undefined) {
@@ -148,9 +151,11 @@ async function main(): Promise<void> {
         window: "utc-month",
         limitUsd: perProjectMonthly,
       });
-      generatedConfig.requiredContext = [
-        ...new Set([...(generatedConfig.requiredContext ?? []), "projectId"]),
-      ];
+      const required = new Set<SpendGroupField>(
+        generatedConfig.requiredContext ?? []
+      );
+      required.add("projectId");
+      generatedConfig.requiredContext = [...required];
     }
 
     const targets = [
