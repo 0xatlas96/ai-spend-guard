@@ -151,6 +151,15 @@ export interface SettlementResult {
   status: GuardStatus;
 }
 
+export interface ProtectionOptions {
+  /**
+   * Generic code cannot know whether a thrown provider call was billed.
+   * "hold" (default) keeps the reservation for reconciliation.
+   * Use "release" only when a thrown operation is guaranteed to be unbilled.
+   */
+  onOperationError?: "hold" | "release";
+}
+
 export interface ProtectionResult<T> {
   value: T;
   settlement: SettlementResult;
