@@ -35,3 +35,27 @@ export class ReservationNotFoundError extends AiSpendGuardError {
     super(`Reservation "${id}" was not found. It may already have been settled or released.`);
   }
 }
+
+export type SpendReconciliationPhase =
+  | "operation"
+  | "cost-calculation"
+  | "settlement";
+
+export class SpendReconciliationRequiredError extends AiSpendGuardError {
+  readonly reservationId: string;
+  readonly phase: SpendReconciliationPhase;
+  readonly originalError: unknown;
+
+  constructor(
+    reservationId: string,
+    phase: SpendReconciliationPhase,
+    originalError: unknown
+  ) {
+    super(
+      `Spend reconciliation required for reservation "${reservationId}" after ${phase} failure. The reservation was kept open to avoid silently forgetting a potentially billed operation.`
+    );
+    this.reservationId = reservationId;
+    this.phase = phase;
+    this.originalError = originalError;
+  }
+}
