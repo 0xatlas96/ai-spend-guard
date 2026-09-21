@@ -36,3 +36,30 @@ function assertNonNegative(value: number, label: string): void {
     throw new RangeError(`${label} must be a finite non-negative number`);
   }
 }
+
+export interface CompositeCostPart {
+  units: number;
+  pricePerUnitUsd: number;
+}
+
+/** Generic cost helper for images, searches, tool calls, storage units, credits, etc. */
+export function estimateUnitCostUsd(units: number, pricePerUnitUsd: number): number {
+  assertNonNegative(units, "units");
+  assertNonNegative(pricePerUnitUsd, "pricePerUnitUsd");
+  return units * pricePerUnitUsd;
+}
+
+/** Convenience helper for voice/video providers priced per minute. */
+export function estimateDurationCostUsd(seconds: number, pricePerMinuteUsd: number): number {
+  assertNonNegative(seconds, "seconds");
+  assertNonNegative(pricePerMinuteUsd, "pricePerMinuteUsd");
+  return (seconds / 60) * pricePerMinuteUsd;
+}
+
+/** Sum heterogeneous paid components into one reservation estimate. */
+export function estimateCompositeCostUsd(parts: readonly CompositeCostPart[]): number {
+  return parts.reduce(
+    (sum, part) => sum + estimateUnitCostUsd(part.units, part.pricePerUnitUsd),
+    0
+  );
+}
