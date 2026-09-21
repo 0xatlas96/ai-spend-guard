@@ -1,6 +1,7 @@
 export { AiSpendGuard, Reservation } from "./guard.js";
 export { SpendFirewall, FirewallReservation } from "./firewall.js";
 export { startSpendGuardServer } from "./server.js";
+export { spendGuardOpenApiDocument } from "./openapi.js";
 export type { RunningSpendGuardServer, SpendGuardServerOptions } from "./server.js";
 export { MemoryStore, JsonFileStore, emptyLedger } from "./store.js";
 export { NodeSqliteStore } from "./sqlite-store.js";
