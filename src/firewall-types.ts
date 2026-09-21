@@ -23,12 +23,31 @@ export type BudgetWindow =
 
 export type PolicyMode = "enforce" | "observe";
 
+export type SpendGroupField =
+  | "provider"
+  | "model"
+  | "resource"
+  | "projectId"
+  | "userId"
+  | "sessionId"
+  | "agentId"
+  | "route"
+  | "environment"
+  | `tag:${string}`;
+
+export interface SpendPolicyGroup {
+  key: string;
+  values: Record<string, string>;
+}
+
 export interface SpendPolicy {
   /** Stable policy identifier used in decisions, logs, and CI output. */
   id: string;
   description?: string;
   /** Empty/omitted match means every operation. All configured fields are ANDed. */
   match?: SpendPolicyMatch;
+  /** Optional per-identity grouping, e.g. ["userId"] gives every user an independent budget. */
+  groupBy?: readonly SpendGroupField[];
   /** Defaults to utc-month. */
   window?: BudgetWindow;
   /** Maximum settled + reserved USD in this window. */
@@ -113,6 +132,7 @@ export interface PolicyViolation {
 export interface PolicyEvaluation {
   policy: SpendPolicy;
   matched: boolean;
+  group?: SpendPolicyGroup;
   usage?: PolicyUsage;
   violations: PolicyViolation[];
   warningThresholds: number[];
@@ -133,6 +153,11 @@ export interface FirewallStatus {
     policy: SpendPolicy;
     usage: PolicyUsage;
     warningThresholds: number[];
+    groups?: Array<{
+      group: SpendPolicyGroup;
+      usage: PolicyUsage;
+      warningThresholds: number[];
+    }>;
   }>;
   openReservations: number;
   staleReservations: number;
@@ -177,6 +202,7 @@ export interface SpendPlan {
 
 export interface SpendPlanPolicyResult {
   policyId: string;
+  group?: SpendPolicyGroup;
   additionalUsd: number;
   additionalCalls: number;
   worstCaseConcurrent: number;
