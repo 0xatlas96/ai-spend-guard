@@ -252,7 +252,7 @@ async function main(): Promise<void> {
       );
       for (const entry of result.policyResults) {
         console.log(
-          `  ${entry.policyId}: +$${entry.additionalUsd.toFixed(6)}, +${entry.additionalCalls} calls, projected $${entry.projectedUsd.toFixed(6)}`
+          `  ${entry.policyId}${entry.group ? ` [${entry.group.key}]` : ""}: +${entry.additionalUsd.toFixed(6)}, +${entry.additionalCalls} calls, projected ${entry.projectedUsd.toFixed(6)}`
         );
       }
       for (const violation of result.blockingViolations) {
@@ -299,6 +299,20 @@ function printStatus(status: FirewallStatus): void {
       entry.policy.mode === "observe" ? "observe" : "enforce",
     ].filter(Boolean);
     console.log(`${entry.policy.id}: ${pieces.join(" · ")}`);
+    for (const grouped of entry.groups ?? []) {
+      const groupPieces = [
+        limit !== undefined
+          ? `${grouped.usage.projectedUsd.toFixed(4)}/${limit.toFixed(4)}`
+          : undefined,
+        calls !== undefined
+          ? `${grouped.usage.projectedCalls}/${calls} calls`
+          : undefined,
+        entry.policy.maxConcurrent !== undefined
+          ? `${grouped.usage.concurrent}/${entry.policy.maxConcurrent} in-flight`
+          : undefined,
+      ].filter(Boolean);
+      console.log(`  ↳ ${grouped.group.key}: ${groupPieces.join(" · ")}`);
+    }
   }
 }
 
