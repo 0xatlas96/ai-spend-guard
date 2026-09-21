@@ -443,8 +443,29 @@ function groupFieldValue(context: SpendContext, field: SpendGroupField): string 
   if (field.startsWith("tag:")) {
     return context.tags?.[field.slice(4)] ?? "<missing>";
   }
-  const value = context[field];
-  return typeof value === "string" ? value : "<missing>";
+
+  switch (field) {
+    case "provider":
+      return context.provider ?? "<missing>";
+    case "model":
+      return context.model ?? "<missing>";
+    case "resource":
+      return context.resource ?? "<missing>";
+    case "projectId":
+      return context.projectId ?? "<missing>";
+    case "userId":
+      return context.userId ?? "<missing>";
+    case "sessionId":
+      return context.sessionId ?? "<missing>";
+    case "agentId":
+      return context.agentId ?? "<missing>";
+    case "route":
+      return context.route ?? "<missing>";
+    case "environment":
+      return context.environment ?? "<missing>";
+    default:
+      return "<missing>";
+  }
 }
 
 function finiteNonNegative(value: number | undefined, label: string, policyId: string): void {
