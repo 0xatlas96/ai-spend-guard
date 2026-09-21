@@ -14,6 +14,8 @@ export {
   estimateCompositeCostUsd,
 } from "./cost.js";
 export { simulateSpendPlan } from "./plan.js";
+export { inspectFirewallConfig } from "./doctor.js";
+export type { DoctorFinding, DoctorReport, DoctorSeverity } from "./doctor.js";
 export {
   AiSpendGuardError,
   BudgetExceededError,
