@@ -1,0 +1,36 @@
+# AGENTS.md
+
+Instructions for coding agents and automated contributors working in this repository.
+
+## Mission
+
+Keep AI Spend Guard a small, auditable budget-enforcement layer for paid AI API calls.
+
+## Required checks
+
+Before proposing or committing a change:
+
+1. Read `README.md`, `CONTRIBUTING.md`, and `docs/threat-model.md`.
+2. Preserve fail-closed behavior for unknown/untrusted cost estimates unless an option explicitly documents otherwise.
+3. Do not add telemetry, external network calls, analytics SDKs, or secret collection to the core package.
+4. Do not hard-code current commercial model prices as timeless truth. Pricing data must be caller-owned or explicitly versioned/date-stamped.
+5. Add tests for every budget-enforcement behavior change.
+6. Run `npm run ci`.
+7. Keep PRs scoped; do not refactor unrelated code.
+
+## Security-sensitive areas
+
+Treat these as high risk:
+
+- `reserve()` / `settle()` accounting
+- store transaction semantics
+- concurrent requests
+- retry/idempotency behavior
+- filesystem paths and lock handling
+- logic that can turn a denied request into an allowed request
+
+For changes in those areas, include a short threat analysis in the PR description.
+
+## Definition of done
+
+A change is not done until tests pass, public behavior is documented, no secrets are included, and the stated hard-cap limitations remain accurate.
