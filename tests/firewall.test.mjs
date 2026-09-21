@@ -566,3 +566,36 @@ test("protect keeps reservation when actual-cost calculation fails after provide
 
   await firewall.release(error.reservationId);
 });
+
+
+test("blocked attempts are observable without creating reservations", async () => {
+  const decisions = [];
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      policies: [{ id: "global", limitUsd: 0.05 }],
+    },
+    {
+      now: fixedNow,
+      onDecision: (decision) => {
+        decisions.push(decision);
+      },
+    }
+  );
+
+  await assert.rejects(
+    () =>
+      firewall.reserve({
+        context: { provider: "openai", resource: "llm" },
+        estimatedCostUsd: 0.1,
+      }),
+    SpendPolicyError
+  );
+
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].allowed, false);
+  assert.equal(decisions[0].blockingViolations[0].policyId, "global");
+
+  const status = await firewall.status();
+  assert.equal(status.openReservations, 0);
+});
