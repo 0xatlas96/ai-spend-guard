@@ -4,7 +4,7 @@ Instructions for coding agents and automated contributors working in this reposi
 
 ## Mission
 
-Keep AI Spend Guard a small, auditable budget-enforcement layer for paid AI API calls.
+Keep AI Spend Guard a small, auditable **financial firewall and budget-as-code layer** for paid AI work: LLMs, media generation, tools, agents, and metered APIs.
 
 ## Required checks
 
@@ -14,7 +14,7 @@ Before proposing or committing a change:
 2. Preserve fail-closed behavior for unknown/untrusted cost estimates unless an option explicitly documents otherwise.
 3. Do not add telemetry, external network calls, analytics SDKs, or secret collection to the core package.
 4. Do not hard-code current commercial model prices as timeless truth. Pricing data must be caller-owned or explicitly versioned/date-stamped.
-5. Add tests for every budget-enforcement behavior change.
+5. Add tests for every budget-enforcement behavior change. Add/update policy contract fixtures when policy semantics change.
 6. Run `npm run ci`.
 7. Keep PRs scoped; do not refactor unrelated code.
 
@@ -22,7 +22,8 @@ Before proposing or committing a change:
 
 Treat these as high risk:
 
-- `reserve()` / `settle()` accounting
+- `SpendFirewall.reserve()` / `settle()` accounting
+- policy matching, `groupBy`, rolling windows, and `requiredContext`
 - store transaction semantics
 - concurrent requests
 - retry/idempotency behavior
