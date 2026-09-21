@@ -12,9 +12,9 @@ import {
   sanitizeWarnAt,
   validateFirewallConfig,
 } from "./policy.js";
-import { ReservationNotFoundError, UnknownEstimateError } from "./errors.js";
+import { ReservationNotFoundError, SpendReconciliationRequiredError, UnknownEstimateError } from "./errors.js";
 import { simulateSpendPlan } from "./plan.js";
-import type { LedgerStore, ReservationRecord, SpendContext } from "./types.js";
+import type { LedgerStore, ProtectionOptions, ReservationRecord, SpendContext } from "./types.js";
 import type {
   FirewallConfig,
   FirewallDecision,
@@ -257,17 +257,46 @@ export class SpendFirewall {
   async protect<T>(
     input: SpendRequest,
     operation: () => Promise<T>,
-    actualCostUsd: (value: T) => number | Promise<number>
+    actualCostUsd: (value: T) => number | Promise<number>,
+    options: ProtectionOptions = {}
   ): Promise<FirewallProtectionResult<T>> {
     const reservation = await this.reserve(input);
+
+    let value: T;
     try {
-      const value = await operation();
-      const actual = await actualCostUsd(value);
+      value = await operation();
+    } catch (error) {
+      if (options.onOperationError === "release") {
+        await reservation.release();
+        throw error;
+      }
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "operation",
+        error
+      );
+    }
+
+    let actual: number;
+    try {
+      actual = await actualCostUsd(value);
+    } catch (error) {
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "cost-calculation",
+        error
+      );
+    }
+
+    try {
       const settlement = await reservation.settle(actual);
       return { value, settlement };
     } catch (error) {
-      await reservation.release().catch(() => undefined);
-      throw error;
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "settlement",
+        error
+      );
     }
   }
 
