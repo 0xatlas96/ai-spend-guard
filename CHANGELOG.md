@@ -22,6 +22,12 @@ All notable changes will be documented here.
 - JSON Schemas for firewall configuration and spend plans
 - expanded firewall and SQLite tests
 - direct GitHub installation support
+- fail-closed required-context enforcement for identity-scoped policies
+- deterministic policy contract test suites and `test-policies` CLI
+- one-command `init` scaffolding with self-validating starter files
+- fail-closed reconciliation for ambiguous provider/cost/settlement failures
+- parallel admission stress tests for MemoryStore and JsonFileStore
+- deterministic budget invariant tests
 
 ### Changed
 
