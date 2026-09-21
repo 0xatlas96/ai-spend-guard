@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import {
   BudgetExceededError,
   ReservationNotFoundError,
+  SpendReconciliationRequiredError,
   UnknownEstimateError,
 } from "./errors.js";
 import { isSameUtcDay, isSameUtcMonth } from "./windows.js";
@@ -14,6 +15,7 @@ import type {
   GuardStatus,
   LedgerState,
   LedgerStore,
+  ProtectionOptions,
   ProtectionResult,
   RecordChargeInput,
   ReserveInput,
@@ -187,17 +189,46 @@ export class AiSpendGuard {
   async protect<T>(
     input: ReserveInput,
     operation: () => Promise<T>,
-    actualCostUsd: (value: T) => number | Promise<number>
+    actualCostUsd: (value: T) => number | Promise<number>,
+    options: ProtectionOptions = {}
   ): Promise<ProtectionResult<T>> {
     const reservation = await this.reserve(input);
+
+    let value: T;
     try {
-      const value = await operation();
-      const actual = await actualCostUsd(value);
+      value = await operation();
+    } catch (error) {
+      if (options.onOperationError === "release") {
+        await reservation.release();
+        throw error;
+      }
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "operation",
+        error
+      );
+    }
+
+    let actual: number;
+    try {
+      actual = await actualCostUsd(value);
+    } catch (error) {
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "cost-calculation",
+        error
+      );
+    }
+
+    try {
       const settlement = await reservation.settle(actual);
       return { value, settlement };
     } catch (error) {
-      await reservation.release().catch(() => undefined);
-      throw error;
+      throw new SpendReconciliationRequiredError(
+        reservation.id,
+        "settlement",
+        error
+      );
     }
   }
 
