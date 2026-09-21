@@ -227,6 +227,35 @@ export function policyGroup(
   };
 }
 
+export function contextFromPolicyGroup(group: SpendPolicyGroup): SpendContext {
+  const context: SpendContext = {};
+  const tags: Record<string, string> = {};
+
+  for (const [field, value] of Object.entries(group.values)) {
+    if (value === "<missing>") continue;
+    if (field.startsWith("tag:")) {
+      tags[field.slice(4)] = value;
+      continue;
+    }
+    if (
+      field === "provider" ||
+      field === "model" ||
+      field === "resource" ||
+      field === "projectId" ||
+      field === "userId" ||
+      field === "sessionId" ||
+      field === "agentId" ||
+      field === "route" ||
+      field === "environment"
+    ) {
+      context[field] = value;
+    }
+  }
+
+  if (Object.keys(tags).length) context.tags = tags;
+  return context;
+}
+
 export function postSettlementViolations(
   state: LedgerState,
   policies: readonly SpendPolicy[],
