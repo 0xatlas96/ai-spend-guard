@@ -43,7 +43,9 @@
       },
       "expect": {
         "allowed": false,
-        "blockingPolicyIds": ["every-user-daily-budget"]
+        "blockingPolicyIds": [
+          "every-user-daily-budget"
+        ]
       }
     },
     {
@@ -56,7 +58,9 @@
             "resource": "llm",
             "userId": "alice",
             "projectId": "support",
-            "environment": "production"
+            "environment": "production",
+            "agentId": "agent-a",
+            "sessionId": "session-a"
           },
           "actualCostUsd": 2.99
         }
@@ -67,13 +71,17 @@
           "resource": "llm",
           "userId": "bob",
           "projectId": "support",
-          "environment": "production"
+          "environment": "production",
+          "agentId": "agent-b",
+          "sessionId": "session-b"
         },
         "estimatedCostUsd": 0.05
       },
       "expect": {
         "allowed": true,
-        "observedPolicyIds": ["new-policy-shadow-mode"]
+        "observedPolicyIds": [
+          "new-policy-shadow-mode"
+        ]
       }
     }
   ]
