@@ -1,0 +1,68 @@
+# AI Spend Guard
+
+> Universal financial firewall and budget-as-code toolkit for AI apps, agents, media generation, tools, and paid APIs.
+
+Repository: https://github.com/0xatlas96/ai-spend-guard
+License: MIT
+Runtime: Node.js 20+; NodeSqliteStore requires Node.js 22.5+
+
+## Start here
+
+- README.md — product overview, installation, examples, guarantees
+- AGENTS.md — instructions for coding agents contributing to this repository
+- docs/architecture.md — design and transaction invariant
+- docs/threat-model.md — trust boundary and failure semantics
+- docs/cookbook.md — common deployment policies
+- SECURITY.md — vulnerability reporting and security model
+- CONTRIBUTING.md — contribution workflow
+- ROADMAP.md — planned work
+
+## Core API
+
+- SpendFirewall — main policy-based financial firewall
+- FirewallReservation — reserve, resize/topUp, settle, release
+- MemoryStore — in-process transactional ledger
+- JsonFileStore — local/single-host persistent ledger
+- NodeSqliteStore — zero-third-party-dependency SQLite ledger on Node 22.5+
+- runPolicyTests — deterministic policy contract tests
+- simulateSpendPlan — budget-as-code pre-deployment cost simulation
+- inspectFirewallConfig — configuration safety doctor
+
+## Core safety invariant
+
+For every protected paid operation:
+
+1. calculate a conservative upper-bound estimate
+2. atomically check all matching enforced policies
+3. reserve that estimate before provider dispatch
+4. execute the paid operation
+5. settle actual cost
+6. never silently discard an ambiguous potentially billed operation
+
+Outstanding reservations count against budget so concurrent requests cannot all consume the same remaining headroom.
+
+## Important constraints
+
+- Unknown estimates fail closed by default.
+- Provider pricing is caller-owned because commercial prices change.
+- Calls that bypass the firewall are invisible to it.
+- Multi-host deployments need a transactional shared LedgerStore.
+- Ambiguous provider failures keep the reservation open for reconciliation.
+- Do not introduce telemetry or network calls into the core.
+- Do not weaken requiredContext, grouped-budget isolation, transaction semantics, or fail-closed behavior without tests and documentation.
+
+## Quick verification
+
+```bash
+npm install
+npm run ci
+```
+
+Starter workflow:
+
+```bash
+node dist/cli.js init
+node dist/cli.js doctor
+node dist/cli.js test-policies --file policy-tests.json
+node dist/cli.js plan --file spend-plan.json
+```
