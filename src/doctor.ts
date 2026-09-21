@@ -59,6 +59,23 @@ export function inspectFirewallConfig(config: FirewallConfig): DoctorReport {
     });
   }
 
+  const requiredContext = new Set(config.requiredContext ?? []);
+  const unguardedGroups = [
+    ...new Set(
+      config.policies
+        .flatMap((policy) => policy.groupBy ?? [])
+        .filter((field) => !requiredContext.has(field))
+    ),
+  ];
+  if (unguardedGroups.length > 0) {
+    findings.push({
+      severity: "warning",
+      code: "group-context-not-required",
+      message:
+        `Grouped budgets depend on context fields that are not required: ${unguardedGroups.join(", ")}. An application bug that omits them can create an unintended <missing> budget group.`,
+    });
+  }
+
   if (!enforced.some((policy) => policy.maxOperationUsd !== undefined)) {
     findings.push({
       severity: "info",
