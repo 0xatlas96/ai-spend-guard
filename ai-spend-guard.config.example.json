@@ -1,0 +1,21 @@
+{
+  "global": {
+    "dailyUsd": 5,
+    "monthlyUsd": 50,
+    "perRequestUsd": 1
+  },
+  "providers": {
+    "openai": {
+      "monthlyUsd": 25
+    },
+    "anthropic": {
+      "monthlyUsd": 15
+    },
+    "gemini": {
+      "monthlyUsd": 10
+    }
+  },
+  "warnAt": [0.8, 0.95],
+  "unknownEstimate": "deny",
+  "ledgerPath": ".ai-spend-guard/ledger.json"
+}
