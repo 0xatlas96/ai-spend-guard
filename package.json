@@ -9,7 +9,11 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./schema/ai-spend-firewall.schema.json": "./schema/ai-spend-firewall.schema.json",
+    "./schema/spend-plan.schema.json": "./schema/spend-plan.schema.json",
+    "./schema/policy-tests.schema.json": "./schema/policy-tests.schema.json",
+    "./package.json": "./package.json"
   },
   "bin": {
     "ai-spend-guard": "./dist/cli.js"
