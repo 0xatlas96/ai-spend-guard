@@ -19,7 +19,7 @@ It can protect:
 - agent actions
 - any other metered API call
 
-It is **local-first, provider-agnostic, zero-runtime-dependency, and fail-closed by default**.
+It is **local-first, provider-agnostic, zero-required-runtime-dependency in its core, and fail-closed by default**.
 
 ---
 
@@ -77,7 +77,11 @@ It combines:
 - **observe/shadow mode**
 - **budget-as-code simulation before deployment**
 - **CLI doctor for unsafe configurations**
-- **persistent local JSON or SQLite ledgers**
+- **persistent Memory / JSON / SQLite ledgers + optional transactional Postgres**
+- **Vercel AI SDK 7 middleware for generate + stream**
+- **local dashboard + authenticated HTTP sidecar for n8n/no-code/other languages**
+- **versioned Budget Contracts: policies + tests + worst-case plans in one CI artifact**
+- **progressive reservation top-ups for streams and multi-step agents**
 - **no telemetry**
 - **no provider API keys required by the library**
 - **no runtime dependencies**
@@ -119,6 +123,34 @@ Runtime: **Node.js 20+**
 
 The optional built-in SQLite store requires **Node.js 22.5+**.
 
+## No-code/local dashboard
+
+After creating a config:
+
+```bash
+npx ai-spend-guard serve
+```
+
+Open **http://127.0.0.1:8787**. You get a local control center with live policy usage, grouped budgets, open/stale reservations, and a safe **Explain** form that evaluates hypothetical calls without spending or reserving money.
+
+The same process exposes an HTTP API, so n8n and non-TypeScript systems can call `/api/reserve` before paid work and `/api/settle` afterwards. See [HTTP sidecar](docs/http-sidecar.md) and [n8n guide](docs/n8n.md).
+
+## One-file Budget Contract
+
+Instead of scattering budget safety across docs and scripts, commit one versioned contract:
+
+```bash
+npx ai-spend-guard verify-contract --file budget-contract.example.json
+```
+
+A Budget Contract can prove all three layers together:
+
+1. the firewall configuration is structurally safe;
+2. expected allow/deny behavior still passes contract tests;
+3. worst-case workload plans stay inside enforced budgets.
+
+The command exits non-zero on a regression, making it directly usable as a PR/deployment gate.
+
 ---
 
 # 60-second example
@@ -150,30 +182,25 @@ const firewall = new SpendFirewall(
   }
 );
 
-const reservation = await firewall.reserve({
-  context: {
-    provider: "openai",
-    model: "your-model",
-    resource: "llm",
-    userId: "user_123",
-    projectId: "support-bot",
+const { value: response } = await firewall.protect(
+  {
+    context: {
+      provider: "openai",
+      model: "your-model",
+      resource: "llm",
+      userId: "user_123",
+      projectId: "support-bot",
+    },
+    estimatedCostUsd: 0.05,
   },
-  estimatedCostUsd: 0.05,
-});
-
-try {
-  const response = await callYourAIProvider();
-
-  const actualCostUsd = calculateRealCost(response);
-
-  await reservation.settle(actualCostUsd);
-} catch (error) {
-  await reservation.release();
-  throw error;
-}
+  () => callYourAIProvider(),
+  (response) => calculateRealCost(response)
+);
 ```
 
 If the request would exceed any matching enforced policy, it is blocked **before** the provider call.
+
+If the provider throws after dispatch, `protect()` keeps the reservation open by default and raises a reconciliation error instead of silently assuming the request was free.
 
 ---
 
