@@ -35,20 +35,29 @@ The roadmap is directional, not a promise of delivery dates.
 
 ## v0.3 — Production integrations
 
-- [ ] publish npm package and automate trusted releases
+- [~] npm Trusted Publishing workflow implemented; registry publisher setup/release still required
 - [x] OpenAI integration recipe
 - [x] Anthropic integration recipe
 - [x] Gemini integration recipe
 - [ ] first-class provider helpers/adapters
-- [ ] Vercel AI SDK middleware
-- [ ] n8n/community-node integration
+- [x] Vercel AI SDK 7 / LanguageModelV3 middleware
+- [x] n8n via authenticated HTTP sidecar; native community node remains optional
 - [ ] LiveKit/Pipecat voice examples
 - [ ] versioned pricing-catalog format with explicit source/date metadata
-- [ ] Postgres transactional store
+- [x] Postgres transactional store + real concurrent CI integration tests
 - [ ] Redis transactional store/reference
-- [ ] serverless deployment recipes
+- [x] multi-host Postgres deployment guidance; provider-specific serverless recipes can expand
 - [ ] structured metrics / OpenTelemetry hooks
 - [ ] import/export ledger tooling
+
+### v0.3 completed differentiation
+
+- [x] authenticated HTTP sidecar + local dashboard
+- [x] OpenAPI sidecar contract
+- [x] versioned Budget Contracts
+- [x] one-command contract verification for CI
+- [x] guided no-code-ish initializer flags
+- [x] Linux/macOS/Windows + Node 20/22/24 CI matrix
 
 ## v0.4 — Audit and governance
 
@@ -76,4 +85,4 @@ The roadmap is directional, not a promise of delivery dates.
 - [ ] cost-aware model routing hints
 - [ ] PR-level spend regression reports
 - [ ] historical cost forecasting
-- [ ] optional hosted dashboard built on the same local-first core
+- [x] local/self-hosted dashboard + HTTP sidecar; hosted service remains optional
