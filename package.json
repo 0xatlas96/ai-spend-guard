@@ -24,7 +24,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "ci": "npm run typecheck && npm test",
-    "prepublishOnly": "npm run ci"
+    "prepublishOnly": "npm run ci",
+    "prepare": "npm run build"
   },
   "engines": {
     "node": ">=20"
