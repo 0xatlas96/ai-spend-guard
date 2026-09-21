@@ -638,7 +638,7 @@ test("progressive top-up is atomically blocked without losing the original reser
 
   const grown = await first.topUp(0.2);
   assert.ok(grown.decision);
-  assert.equal(first.estimatedCostUsd, 0.6);
+  assert.ok(Math.abs(first.estimatedCostUsd - 0.6) < 1e-9);
 
   status = await firewall.status();
   assert.ok(Math.abs(status.policies[0].usage.reservedUsd - 0.9) < 1e-9);
