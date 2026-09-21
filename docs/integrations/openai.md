@@ -82,7 +82,9 @@ try {
 
   return response;
 } catch (error) {
-  await reservation.release();
+  // Do not blindly release here: a network/SDK error can be ambiguous and
+  // the provider may already have completed billable work.
+  console.error("Reconcile reservation before release:", reservation.id);
   throw error;
 }
 ```
