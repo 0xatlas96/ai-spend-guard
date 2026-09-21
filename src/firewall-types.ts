@@ -144,6 +144,11 @@ export interface StaleReservation {
   stale: boolean;
 }
 
+export interface FirewallRecordResult {
+  charge: ChargeRecord;
+  postSettlementViolations: PolicyViolation[];
+}
+
 export interface FirewallSettlementResult {
   charge: ChargeRecord;
   overrunUsd: number;
