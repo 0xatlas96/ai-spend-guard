@@ -98,7 +98,7 @@ export class SpendFirewall {
     const normalized = this.normalizeRequest(input);
     const now = this.now();
 
-    const { record, decision } = await this.store.transact((state) => {
+    const result = await this.store.transact((state) => {
       if (normalized.idempotencyKey) {
         const pending = Object.values(state.reservations).find(
           (item) => item.idempotencyKey === normalized.idempotencyKey
@@ -126,7 +126,10 @@ export class SpendFirewall {
         normalized.estimatedCostUsd,
         now
       );
-      if (!decision.allowed) throw new SpendPolicyError(decision);
+
+      if (!decision.allowed) {
+        return { decision };
+      }
 
       const provider =
         normalized.context.provider ?? this.config.defaultProvider ?? "custom";
@@ -145,9 +148,14 @@ export class SpendFirewall {
       return { record, decision };
     });
 
-    await this.emitDecision(decision);
-    await this.emitWarnings(decision);
-    return new FirewallReservation(this, record, decision);
+    await this.emitDecision(result.decision);
+    await this.emitWarnings(result.decision);
+
+    if (!result.decision.allowed || !("record" in result) || !result.record) {
+      throw new SpendPolicyError(result.decision);
+    }
+
+    return new FirewallReservation(this, result.record, result.decision);
   }
 
   async settle(
