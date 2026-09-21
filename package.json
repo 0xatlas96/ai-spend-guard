@@ -16,8 +16,14 @@
   },
   "files": [
     "dist",
+    "schema",
+    "docs",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "SECURITY.md",
+    "ai-spend-firewall.config.example.json",
+    "spend-plan.example.json",
+    "policy-tests.example.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
