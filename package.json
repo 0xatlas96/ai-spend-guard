@@ -23,9 +23,10 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
-    "ci": "npm run typecheck && npm test",
+    "ci": "npm run typecheck && npm test && npm run verify:examples",
     "prepublishOnly": "npm run ci",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "verify:examples": "node dist/cli.js doctor --config ai-spend-firewall.config.example.json && node dist/cli.js test-policies --file policy-tests.example.json --config ai-spend-firewall.config.example.json && node dist/cli.js plan --file spend-plan.example.json --config ai-spend-firewall.config.example.json --max-total 10"
   },
   "engines": {
     "node": ">=20"
