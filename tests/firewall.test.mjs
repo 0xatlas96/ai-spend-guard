@@ -8,6 +8,7 @@ import {
   SpendFirewall,
   SpendPolicyError,
   inspectFirewallConfig,
+  runPolicyTests,
 } from "../dist/index.js";
 
 const fixed = new Date("2026-09-21T12:00:00.000Z");
@@ -359,4 +360,68 @@ test("requiredContext fails closed before a scoped policy can be bypassed", asyn
   });
 
   await reservation.release();
+});
+
+
+test("policy contract suite proves allow/deny behavior before deployment", async () => {
+  const result = await runPolicyTests(
+    {
+      requiredContext: ["provider", "resource", "userId"],
+      policies: [
+        {
+          id: "per-user",
+          groupBy: ["userId"],
+          window: "utc-day",
+          limitUsd: 1,
+        },
+        {
+          id: "shadow",
+          match: { resource: "llm" },
+          window: "utc-day",
+          limitUsd: 0.5,
+          mode: "observe",
+        },
+      ],
+    },
+    {
+      name: "contract",
+      now: "2026-09-21T12:00:00.000Z",
+      cases: [
+        {
+          name: "fresh user allowed",
+          request: {
+            context: { provider: "openai", resource: "llm", userId: "alice" },
+            estimatedCostUsd: 0.1,
+          },
+          expect: {
+            allowed: true,
+            blockingPolicyIds: [],
+          },
+        },
+        {
+          name: "spent user denied",
+          setup: [
+            {
+              type: "record",
+              context: { provider: "openai", resource: "llm", userId: "alice" },
+              actualCostUsd: 0.95,
+            },
+          ],
+          request: {
+            context: { provider: "openai", resource: "llm", userId: "alice" },
+            estimatedCostUsd: 0.1,
+          },
+          expect: {
+            allowed: false,
+            blockingPolicyIds: ["per-user"],
+            observedPolicyIds: ["shadow"],
+          },
+        },
+      ],
+    }
+  );
+
+  assert.equal(result.passed, true);
+  assert.equal(result.passedCases, 2);
+  assert.equal(result.failedCases, 0);
 });
