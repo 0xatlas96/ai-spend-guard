@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dashboardHtml } from "./dashboard.js";
+import { spendGuardOpenApiDocument } from "./openapi.js";
 import {
   DuplicateOperationError,
   IdempotencyConflictError,
@@ -68,6 +69,10 @@ export async function startSpendGuardServer(
       }
 
       const url = new URL(request.url ?? "/", `http://${host}`);
+
+      if (request.method === "GET" && url.pathname === "/openapi.json") {
+        return json(response, 200, spendGuardOpenApiDocument());
+      }
 
       if (request.method === "GET" && url.pathname === "/") {
         if (!dashboard) return json(response, 404, notFound());
