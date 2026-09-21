@@ -29,7 +29,8 @@ try {
   await reservation.settle(actualCostUsd);
   return message;
 } catch (error) {
-  await reservation.release();
+  // Keep the reservation until you can prove the provider did not bill it.
+  console.error("Reconcile reservation before release:", reservation.id);
   throw error;
 }
 ```
