@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
+import { access, readFile, writeFile } from "node:fs/promises";
 import {
   createFirewallFromConfig,
   loadFirewallConfig,
@@ -14,6 +14,11 @@ import type {
   SpendRequest,
 } from "./firewall-types.js";
 import type { SpendContext } from "./types.js";
+import {
+  starterFirewallConfig,
+  starterPolicyTests,
+  starterSpendPlan,
+} from "./templates.js";
 
 const args = process.argv.slice(2);
 const command = args.shift() ?? "help";
@@ -85,6 +90,55 @@ function spendRequestFromArgs(): SpendRequest {
 async function main(): Promise<void> {
   if (command === "help" || command === "--help" || command === "-h") {
     printHelp();
+    return;
+  }
+
+  if (command === "init") {
+    const force = has("--force");
+    const targets = [
+      {
+        path: "ai-spend-firewall.config.json",
+        value: starterFirewallConfig,
+      },
+      {
+        path: "spend-plan.json",
+        value: starterSpendPlan,
+      },
+      {
+        path: "policy-tests.json",
+        value: starterPolicyTests,
+      },
+    ];
+
+    if (!force) {
+      const existing: string[] = [];
+      for (const target of targets) {
+        try {
+          await access(target.path);
+          existing.push(target.path);
+        } catch {
+          // Missing is expected.
+        }
+      }
+      if (existing.length) {
+        throw new Error(
+          `Refusing to overwrite existing file(s): ${existing.join(", ")}. Use --force only if replacement is intentional.`
+        );
+      }
+    }
+
+    for (const target of targets) {
+      await writeFile(
+        target.path,
+        `${JSON.stringify(target.value, null, 2)}\n`,
+        "utf8"
+      );
+      console.log(`created ${target.path}`);
+    }
+
+    console.log(
+      "Next: ai-spend-guard doctor && ai-spend-guard test-policies --file policy-tests.json && ai-spend-guard plan --file spend-plan.json"
+    );
     return;
   }
 
