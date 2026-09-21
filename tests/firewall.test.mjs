@@ -4,6 +4,7 @@ import {
   DuplicateOperationError,
   IdempotencyConflictError,
   MemoryStore,
+  MissingSpendContextError,
   SpendFirewall,
   SpendPolicyError,
   inspectFirewallConfig,
@@ -319,4 +320,43 @@ test("doctor warns when there is no global enforced cap", () => {
 
   assert.equal(report.ok, true);
   assert.ok(report.findings.some((finding) => finding.code === "no-global-cap"));
+});
+
+
+test("requiredContext fails closed before a scoped policy can be bypassed", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      requiredContext: ["provider", "resource", "userId"],
+      policies: [
+        {
+          id: "per-user",
+          groupBy: ["userId"],
+          window: "utc-day",
+          limitUsd: 1,
+        },
+      ],
+    },
+    { now: fixedNow }
+  );
+
+  await assert.rejects(
+    () =>
+      firewall.reserve({
+        context: { provider: "openai", resource: "llm" },
+        estimatedCostUsd: 0.1,
+      }),
+    MissingSpendContextError
+  );
+
+  const reservation = await firewall.reserve({
+    context: {
+      provider: "openai",
+      resource: "llm",
+      userId: "alice",
+    },
+    estimatedCostUsd: 0.1,
+  });
+
+  await reservation.release();
 });
