@@ -12,12 +12,17 @@
       "limitCalls": 50000,
       "maxOperationUsd": 2,
       "maxConcurrent": 25,
-      "warnAt": [0.8, 0.95]
+      "warnAt": [
+        0.8,
+        0.95
+      ]
     },
     {
       "id": "every-user-daily-budget",
       "description": "Each user gets an independent $1/day budget.",
-      "groupBy": ["userId"],
+      "groupBy": [
+        "userId"
+      ],
       "window": "utc-day",
       "limitUsd": 1,
       "limitCalls": 500
@@ -25,7 +30,9 @@
     {
       "id": "every-project-monthly-budget",
       "description": "Each project gets an independent $20/month budget.",
-      "groupBy": ["projectId"],
+      "groupBy": [
+        "projectId"
+      ],
       "window": "utc-month",
       "limitUsd": 20
     },
@@ -33,9 +40,16 @@
       "id": "agent-run-budget",
       "description": "Each agent session gets a small rolling budget and concurrency cap.",
       "match": {
-        "resource": ["llm", "tool", "search"]
+        "resource": [
+          "llm",
+          "tool",
+          "search"
+        ]
       },
-      "groupBy": ["agentId", "sessionId"],
+      "groupBy": [
+        "agentId",
+        "sessionId"
+      ],
       "window": {
         "rollingMs": 3600000
       },
@@ -65,5 +79,9 @@
       "limitUsd": 3,
       "mode": "observe"
     }
+  ],
+  "requiredContext": [
+    "provider",
+    "resource"
   ]
 }
