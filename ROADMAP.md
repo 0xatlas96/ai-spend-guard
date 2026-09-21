@@ -30,13 +30,16 @@ The roadmap is directional, not a promise of delivery dates.
 - [x] zero-dependency Node SQLite store (Node 22.5+)
 - [x] JSON Schemas for config and spend plans
 - [x] expanded test suite, CI and CodeQL
+- [x] fail-closed required context enforcement
+- [x] policy contract test suites and CI command
 
 ## v0.3 — Production integrations
 
 - [ ] publish npm package and automate trusted releases
-- [ ] OpenAI integration recipe/helper
-- [ ] Anthropic integration recipe/helper
-- [ ] Gemini integration recipe/helper
+- [x] OpenAI integration recipe
+- [x] Anthropic integration recipe
+- [x] Gemini integration recipe
+- [ ] first-class provider helpers/adapters
 - [ ] Vercel AI SDK middleware
 - [ ] n8n/community-node integration
 - [ ] LiveKit/Pipecat voice examples
@@ -54,7 +57,7 @@ The roadmap is directional, not a promise of delivery dates.
 - [ ] optional approval requirement above a spend threshold
 - [ ] signed policy bundles
 - [ ] organization/team policy inheritance
-- [ ] policy test fixtures / golden files
+- [x] policy test fixtures / golden files
 - [ ] configuration migration tooling
 
 ## Quality / hardening
