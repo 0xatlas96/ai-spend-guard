@@ -28,6 +28,12 @@ All notable changes will be documented here.
 - fail-closed reconciliation for ambiguous provider/cost/settlement failures
 - parallel admission stress tests for MemoryStore and JsonFileStore
 - deterministic budget invariant tests
+- progressive reservation `resize()` / `topUp()` for streams and multi-step jobs
+- blocked-decision observability hooks
+- immutable cloned firewall configuration after validation
+- agent-readable `llms.txt` project guide
+- package subpath exports for JSON Schemas
+- immutable-SHA pinned GitHub Actions for stronger CI supply-chain integrity
 
 ### Changed
 
