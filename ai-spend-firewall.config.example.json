@@ -25,7 +25,14 @@
       ],
       "window": "utc-day",
       "limitUsd": 1,
-      "limitCalls": 500
+      "limitCalls": 500,
+      "match": {
+        "resource": [
+          "llm",
+          "audio",
+          "image"
+        ]
+      }
     },
     {
       "id": "every-project-monthly-budget",
