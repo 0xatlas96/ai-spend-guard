@@ -16,6 +16,17 @@ export {
   estimateCompositeCostUsd,
 } from "./cost.js";
 export { simulateSpendPlan } from "./plan.js";
+export { runPolicyTests } from "./policy-tests.js";
+export type {
+  PolicyTestCase,
+  PolicyTestCaseResult,
+  PolicyTestExpectation,
+  PolicyTestRecordedSpend,
+  PolicyTestReservedSpend,
+  PolicyTestSetupStep,
+  PolicyTestSuite,
+  PolicyTestSuiteResult,
+} from "./policy-tests.js";
 export { inspectFirewallConfig } from "./doctor.js";
 export type { DoctorFinding, DoctorReport, DoctorSeverity } from "./doctor.js";
 export {
