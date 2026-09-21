@@ -6,8 +6,10 @@ import type {
   PolicyEvaluation,
   PolicyUsage,
   PolicyViolation,
+  SpendGroupField,
   SpendMatchValue,
   SpendPolicy,
+  SpendPolicyGroup,
   SpendPolicyMatch,
 } from "./firewall-types.js";
 import { InvalidPolicyError } from "./firewall-errors.js";
@@ -53,6 +55,25 @@ export function validateFirewallConfig(config: FirewallConfig): void {
       }
     }
 
+    if (policy.groupBy) {
+      const seen = new Set<string>();
+      for (const field of policy.groupBy) {
+        if (!field || seen.has(field)) {
+          throw new InvalidPolicyError(
+            `Policy "${policy.id}" groupBy fields must be unique non-empty values.`,
+            policy.id
+          );
+        }
+        if (field.startsWith("tag:") && field.slice(4).trim() === "") {
+          throw new InvalidPolicyError(
+            `Policy "${policy.id}" contains an empty tag groupBy key.`,
+            policy.id
+          );
+        }
+        seen.add(field);
+      }
+    }
+
     for (const threshold of policy.warnAt ?? []) {
       if (!Number.isFinite(threshold) || threshold <= 0 || threshold > 1) {
         throw new InvalidPolicyError(
@@ -63,7 +84,10 @@ export function validateFirewallConfig(config: FirewallConfig): void {
     }
   }
 
-  if (config.staleAfterMs !== undefined && (!Number.isFinite(config.staleAfterMs) || config.staleAfterMs < 0)) {
+  if (
+    config.staleAfterMs !== undefined &&
+    (!Number.isFinite(config.staleAfterMs) || config.staleAfterMs < 0)
+  ) {
     throw new InvalidPolicyError("staleAfterMs must be a finite non-negative number.");
   }
 }
@@ -80,7 +104,8 @@ export function evaluateSpendRequest(
 
   for (const policy of policies) {
     if (!matchesPolicy(context, policy.match)) continue;
-    const usage = policyUsage(state, policy, now);
+    const group = policyGroup(policy, context);
+    const usage = policyUsage(state, policy, now, context);
     const violations = requestViolations(policy, usage, estimatedCostUsd);
     const projectedRatio =
       policy.limitUsd === undefined || policy.limitUsd === 0
@@ -92,13 +117,16 @@ export function evaluateSpendRequest(
     matchedPolicies.push({
       policy,
       matched: true,
+      ...(group ? { group } : {}),
       usage: {
         ...usage,
         projectedUsd: usage.projectedUsd + estimatedCostUsd,
         projectedCalls: usage.projectedCalls + 1,
       },
       violations,
-      warningThresholds: sanitizeWarnAt(policy.warnAt).filter((threshold) => projectedRatio >= threshold),
+      warningThresholds: sanitizeWarnAt(policy.warnAt).filter(
+        (threshold) => projectedRatio >= threshold
+      ),
     });
   }
 
@@ -116,22 +144,32 @@ export function evaluateSpendRequest(
   };
 }
 
-export function policyUsage(state: LedgerState, policy: SpendPolicy, now: Date): PolicyUsage {
+export function policyUsage(
+  state: LedgerState,
+  policy: SpendPolicy,
+  now: Date,
+  groupContext?: SpendContext
+): PolicyUsage {
   let actualUsd = 0;
   let reservedUsd = 0;
   let settledCalls = 0;
   let reservedCalls = 0;
+  const targetGroup = groupContext ? policyGroup(policy, groupContext) : undefined;
 
   for (const charge of state.charges) {
     if (!inBudgetWindow(charge.createdAt, policy.window, now)) continue;
-    if (!matchesPolicy(contextForCharge(charge), policy.match)) continue;
+    const context = contextForCharge(charge);
+    if (!matchesPolicy(context, policy.match)) continue;
+    if (targetGroup && policyGroup(policy, context)?.key !== targetGroup.key) continue;
     actualUsd += charge.costUsd;
     settledCalls += 1;
   }
 
   for (const reservation of Object.values(state.reservations)) {
     if (!inBudgetWindow(reservation.createdAt, policy.window, now)) continue;
-    if (!matchesPolicy(contextForReservation(reservation), policy.match)) continue;
+    const context = contextForReservation(reservation);
+    if (!matchesPolicy(context, policy.match)) continue;
+    if (targetGroup && policyGroup(policy, context)?.key !== targetGroup.key) continue;
     reservedUsd += reservation.estimatedCostUsd;
     reservedCalls += 1;
   }
@@ -147,6 +185,48 @@ export function policyUsage(state: LedgerState, policy: SpendPolicy, now: Date):
   };
 }
 
+export function listPolicyGroups(
+  state: LedgerState,
+  policy: SpendPolicy
+): SpendPolicyGroup[] {
+  if (!policy.groupBy?.length) return [];
+  const groups = new Map<string, SpendPolicyGroup>();
+
+  for (const charge of state.charges) {
+    const context = contextForCharge(charge);
+    if (!matchesPolicy(context, policy.match)) continue;
+    const group = policyGroup(policy, context);
+    if (group) groups.set(group.key, group);
+  }
+
+  for (const reservation of Object.values(state.reservations)) {
+    const context = contextForReservation(reservation);
+    if (!matchesPolicy(context, policy.match)) continue;
+    const group = policyGroup(policy, context);
+    if (group) groups.set(group.key, group);
+  }
+
+  return [...groups.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+export function policyGroup(
+  policy: SpendPolicy,
+  contextInput: SpendContext
+): SpendPolicyGroup | undefined {
+  if (!policy.groupBy?.length) return undefined;
+  const context = normalizeContext(contextInput);
+  const values: Record<string, string> = {};
+
+  for (const field of policy.groupBy) {
+    values[field] = groupFieldValue(context, field);
+  }
+
+  return {
+    key: policy.groupBy.map((field) => `${field}=${values[field]}`).join("|"),
+    values,
+  };
+}
+
 export function postSettlementViolations(
   state: LedgerState,
   policies: readonly SpendPolicy[],
@@ -156,7 +236,7 @@ export function postSettlementViolations(
   return policies
     .filter((policy) => matchesPolicy(context, policy.match))
     .flatMap((policy) => {
-      const usage = policyUsage(state, policy, now);
+      const usage = policyUsage(state, policy, now, context);
       const mode = policy.mode ?? "enforce";
       const violations: PolicyViolation[] = [];
       if (policy.limitUsd !== undefined && usage.projectedUsd > policy.limitUsd + Number.EPSILON) {
@@ -183,7 +263,10 @@ export function postSettlementViolations(
     });
 }
 
-export function matchesPolicy(contextInput: SpendContext, match: SpendPolicyMatch | undefined): boolean {
+export function matchesPolicy(
+  contextInput: SpendContext,
+  match: SpendPolicyMatch | undefined
+): boolean {
   if (!match) return true;
   const context = normalizeContext(contextInput);
   const fields: Array<keyof Omit<SpendPolicyMatch, "tags">> = [
@@ -231,9 +314,15 @@ export function inBudgetWindow(
     );
   }
   if (chosen === "utc-month") {
-    return created.getUTCFullYear() === now.getUTCFullYear() && created.getUTCMonth() === now.getUTCMonth();
+    return (
+      created.getUTCFullYear() === now.getUTCFullYear() &&
+      created.getUTCMonth() === now.getUTCMonth()
+    );
   }
-  return created.getTime() >= now.getTime() - chosen.rollingMs && created.getTime() <= now.getTime();
+  return (
+    created.getTime() >= now.getTime() - chosen.rollingMs &&
+    created.getTime() <= now.getTime()
+  );
 }
 
 export function contextForReservation(record: ReservationRecord): SpendContext {
@@ -258,7 +347,10 @@ function requestViolations(
   const mode = policy.mode ?? "enforce";
   const violations: PolicyViolation[] = [];
 
-  if (policy.maxOperationUsd !== undefined && estimatedCostUsd > policy.maxOperationUsd + Number.EPSILON) {
+  if (
+    policy.maxOperationUsd !== undefined &&
+    estimatedCostUsd > policy.maxOperationUsd + Number.EPSILON
+  ) {
     violations.push({
       policyId: policy.id,
       mode,
@@ -316,6 +408,14 @@ function requestViolations(
 
 function matchesValue(actual: string, expected: SpendMatchValue): boolean {
   return typeof expected === "string" ? actual === expected : expected.includes(actual);
+}
+
+function groupFieldValue(context: SpendContext, field: SpendGroupField): string {
+  if (field.startsWith("tag:")) {
+    return context.tags?.[field.slice(4)] ?? "<missing>";
+  }
+  const value = context[field];
+  return typeof value === "string" ? value : "<missing>";
 }
 
 function finiteNonNegative(value: number | undefined, label: string, policyId: string): void {
