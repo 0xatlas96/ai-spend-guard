@@ -55,3 +55,14 @@ Taxes, rounding, batch discounts, cached-token rules, credits, asynchronous usag
 ## Defense in depth
 
 Use provider-side spend limits or alerts where available, least-privilege API keys, key rotation, separate credentials per environment/project, application rate limits, and observability in addition to AI Spend Guard.
+
+
+## Ambiguous provider failures
+
+A network error or SDK exception does not prove that a provider performed no billable work. For that reason, `SpendFirewall.protect()` keeps the reservation open by default when the protected operation throws.
+
+This intentionally prefers temporary budget lock-up over silently forgetting a potentially billed request. Reconcile the provider request and then settle or explicitly release the reservation.
+
+`{ onOperationError: "release" }` is available only for operation contracts where a thrown error is guaranteed to occur before billable dispatch.
+
+Failures during actual-cost calculation or settlement also keep the reservation rather than automatically freeing budget.
