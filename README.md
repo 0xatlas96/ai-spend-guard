@@ -2,83 +2,161 @@
 
 [![CI](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/codeql.yml/badge.svg)](https://github.com/0xatlas96/ai-spend-guard/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**Stop unexpected AI API spend before the request leaves your app.**
+**The universal financial firewall for AI apps.**
 
-AI Spend Guard is a provider-agnostic, local-first budget firewall for LLM and AI API calls. It reserves a conservative cost estimate **before** a paid request runs, counts concurrent reservations against the same budget, and blocks new work when a daily, monthly, provider, or per-request ceiling would be exceeded.
+AI Spend Guard sits **before** paid AI work and decides whether it is allowed to run.
 
-> [!IMPORTANT]
-> AI Spend Guard is an application-side control, not a provider billing control. To get hard-stop behavior, route every paid request through the guard and reserve a conservative **upper-bound** cost before sending the request. A provider can still bill more than your estimate, and calls made outside the guard are invisible to it.
+It can protect:
+- LLM calls
+- image generation
+- audio / TTS / STT
+- video generation
+- embeddings
+- search APIs
+- paid tools
+- agent actions
+- any other metered API call
 
-## Why
+It is **local-first, provider-agnostic, zero-runtime-dependency, and fail-closed by default**.
 
-AI applications often fail in the same way: a loop runs longer than expected, concurrency spikes, retries multiply, or a model silently becomes more expensive. Provider dashboards are useful after the fact, but developers also need a control in front of the request.
+---
 
-AI Spend Guard is designed around four rules:
+## The problem
 
-1. **Reserve first.** Concurrent requests consume budget before they run.
-2. **Fail closed by default.** Requests without a cost estimate are denied unless you explicitly allow them.
-3. **Separate scopes.** Apply global limits and tighter limits per provider.
-4. **Own your data.** No telemetry, no hosted service, no API keys sent anywhere.
+A normal AI app often looks like this:
 
-## Features
+```text
+user
+  ↓
+your app
+  ↓
+OpenAI / Anthropic / Gemini / image / audio / video / tools
+  ↓
+money
+```
 
-- Global **daily**, **monthly**, and **per-request** USD limits
-- Independent limits for OpenAI, Anthropic, Gemini, or any custom provider name
-- Reservation → settlement flow to prevent parallel requests from racing past a limit
-- Warning thresholds such as 80% and 95%
-- Persistent JSON ledger with a cross-process lock for local/single-host workloads
-- In-memory store for tests and ephemeral workers
-- Pluggable `LedgerStore` interface for Postgres/Redis/SQLite or other transactional backends
-- Generic token-cost estimator with caller-supplied pricing
-- CLI for status, reserve, settle, release, and manual charge recording
-- Zero runtime dependencies
-- TypeScript-first, Node.js 20+
+If a bug, retry loop, abusive user, or runaway agent starts calling paid services repeatedly, the bill can grow before anyone notices.
 
-## Install
+AI Spend Guard changes the path:
 
-The repository can be used directly today. npm publishing is planned after the first public release cycle.
+```text
+user
+  ↓
+your app
+  ↓
+AI SPEND GUARD
+  ↓
+"Is this operation still inside policy?"
+  ↓
+YES → run paid operation
+NO  → block before money is spent
+```
+
+---
+
+# What makes it different
+
+AI Spend Guard is not only a token counter.
+
+It combines:
+
+- **pre-call dollar enforcement**
+- **atomic reserve → settle accounting**
+- **per-user budgets**
+- **per-project budgets**
+- **per-agent budgets**
+- **per-session budgets**
+- **provider/model/resource budgets**
+- **rolling windows**
+- **call-count limits**
+- **concurrency limits**
+- **per-operation cost caps**
+- **idempotency protection against duplicate paid side effects**
+- **observe/shadow mode**
+- **budget-as-code simulation before deployment**
+- **CLI doctor for unsafe configurations**
+- **persistent local JSON or SQLite ledgers**
+- **no telemetry**
+- **no provider API keys required by the library**
+- **no runtime dependencies**
+
+The goal is simple:
+
+> **Do not merely report overspend after it happens. Prevent the next paid operation from happening.**
+
+---
+
+# Install
+
+Until the npm release is published, install directly from GitHub:
 
 ```bash
+npm install github:0xatlas96/ai-spend-guard
+```
+
+Or clone the repository:
+
+```bash
+git clone https://github.com/0xatlas96/ai-spend-guard.git
+cd ai-spend-guard
 npm install
 npm run build
+npm test
 ```
 
-When published to npm, the intended install is:
+Runtime: **Node.js 20+**
 
-```bash
-npm install ai-spend-guard
-```
+The optional built-in SQLite store requires **Node.js 22.5+**.
 
-## 60-second example
+---
+
+# 60-second example
 
 ```ts
-import { AiSpendGuard, JsonFileStore } from "ai-spend-guard";
+import {
+  SpendFirewall,
+  JsonFileStore,
+} from "ai-spend-guard";
 
-const guard = new AiSpendGuard(
+const firewall = new SpendFirewall(
   new JsonFileStore(".ai-spend-guard/ledger.json"),
   {
-    global: {
-      dailyUsd: 5,
-      monthlyUsd: 50,
-      perRequestUsd: 1,
-    },
-    providers: {
-      openai: { monthlyUsd: 25 },
-      anthropic: { monthlyUsd: 15 },
-      gemini: { monthlyUsd: 10 },
-    },
+    policies: [
+      {
+        id: "global-monthly",
+        window: "utc-month",
+        limitUsd: 50,
+        maxOperationUsd: 2,
+        maxConcurrent: 20,
+      },
+      {
+        id: "per-user-daily",
+        groupBy: ["userId"],
+        window: "utc-day",
+        limitUsd: 1,
+      },
+    ],
   }
 );
 
-const reservation = await guard.reserve({
-  provider: "openai",
-  estimatedCostUsd: 0.05, // use a conservative upper bound
+const reservation = await firewall.reserve({
+  context: {
+    provider: "openai",
+    model: "your-model",
+    resource: "llm",
+    userId: "user_123",
+    projectId: "support-bot",
+  },
+  estimatedCostUsd: 0.05,
 });
 
 try {
-  // const response = await openai.responses.create(...)
-  const actualCostUsd = 0.031;
+  const response = await callYourAIProvider();
+
+  const actualCostUsd = calculateRealCost(response);
+
   await reservation.settle(actualCostUsd);
 } catch (error) {
   await reservation.release();
@@ -86,32 +164,478 @@ try {
 }
 ```
 
-If the new reservation would push a configured budget over its ceiling, `reserve()` throws `BudgetExceededError` **before** your paid API call executes.
+If the request would exceed any matching enforced policy, it is blocked **before** the provider call.
 
-## Protect a call in one block
+---
+
+# Why reserve first?
+
+A naive limiter can fail under concurrency.
+
+Imagine $1 remains.
+
+```text
+Request A checks budget → sees $1 → allowed
+Request B checks budget → sees $1 → allowed
+
+A spends $0.70
+B spends $0.70
+
+Total = $1.40
+```
+
+AI Spend Guard reserves money first:
+
+```text
+A reserves $0.70
+remaining = $0.30
+
+B tries to reserve $0.70
+→ BLOCKED
+```
+
+That reserve → settle model is the core safety invariant.
+
+---
+
+# Universal spend context
+
+Every operation can describe itself with context:
 
 ```ts
-const result = await guard.protect(
-  { provider: "openai", estimatedCostUsd: 0.08 },
+{
+  provider: "openai",
+  model: "example-model",
+  resource: "llm",
+  projectId: "support",
+  userId: "user_42",
+  sessionId: "session_9",
+  agentId: "research-agent",
+  route: "/api/chat",
+  environment: "production",
+  tags: {
+    customerTier: "free"
+  }
+}
+```
+
+Policies can match any of these dimensions.
+
+---
+
+# Dynamic per-user / per-project / per-agent budgets
+
+This is one of the most important features.
+
+You do **not** need to create one policy for every user.
+
+```json
+{
+  "id": "every-user-daily-budget",
+  "groupBy": ["userId"],
+  "window": "utc-day",
+  "limitUsd": 1
+}
+```
+
+That means:
+
+```text
+alice → independent $1/day
+bob   → independent $1/day
+carla → independent $1/day
+...
+```
+
+Same idea for projects:
+
+```json
+{
+  "id": "every-project-monthly-budget",
+  "groupBy": ["projectId"],
+  "window": "utc-month",
+  "limitUsd": 20
+}
+```
+
+Or agent runs:
+
+```json
+{
+  "id": "agent-run-budget",
+  "groupBy": ["agentId", "sessionId"],
+  "window": { "rollingMs": 3600000 },
+  "limitUsd": 2,
+  "limitCalls": 100,
+  "maxConcurrent": 8
+}
+```
+
+---
+
+# Policies
+
+A policy can control four independent things:
+
+```json
+{
+  "id": "production-hard-cap",
+  "window": "utc-month",
+  "limitUsd": 100,
+  "limitCalls": 50000,
+  "maxOperationUsd": 2,
+  "maxConcurrent": 25
+}
+```
+
+### `limitUsd`
+
+Maximum settled + reserved dollar spend inside the window.
+
+### `limitCalls`
+
+Stops runaway loops even when individual calls are very cheap.
+
+### `maxOperationUsd`
+
+Stops one unusually expensive operation.
+
+### `maxConcurrent`
+
+Stops excessive fan-out even when the dollar budget still has room.
+
+---
+
+# Match only specific workloads
+
+Example: stricter controls for video generation.
+
+```json
+{
+  "id": "video-generation",
+  "match": {
+    "resource": "video"
+  },
+  "window": "utc-day",
+  "limitUsd": 10,
+  "maxOperationUsd": 1.5,
+  "maxConcurrent": 2
+}
+```
+
+Match values can also be arrays:
+
+```json
+{
+  "match": {
+    "provider": ["openai", "anthropic"],
+    "resource": ["llm", "embedding"]
+  }
+}
+```
+
+---
+
+# Rolling budgets
+
+Built-in windows:
+
+```text
+utc-day
+utc-month
+lifetime
+```
+
+Or arbitrary rolling windows:
+
+```json
+{
+  "window": {
+    "rollingMs": 3600000
+  }
+}
+```
+
+That example means: **last 60 minutes**.
+
+---
+
+# Observe mode
+
+Want to test a tighter policy without breaking production?
+
+```json
+{
+  "id": "future-llm-limit",
+  "match": {
+    "resource": "llm",
+    "environment": "production"
+  },
+  "limitUsd": 3,
+  "window": "utc-day",
+  "mode": "observe"
+}
+```
+
+Violations are reported, but calls are not blocked.
+
+Once you trust the rule:
+
+```json
+{
+  "mode": "enforce"
+}
+```
+
+---
+
+# Idempotency protection
+
+Retries can accidentally execute the same paid side effect twice.
+
+Use:
+
+```ts
+const reservation = await firewall.reserve({
+  context: {
+    resource: "video",
+    provider: "video-provider",
+  },
+  estimatedCostUsd: 0.80,
+  idempotencyKey: "job:84:video:1",
+});
+```
+
+Reusing that key is blocked.
+
+If the same key is reused with different cost/context, AI Spend Guard throws an idempotency conflict instead of guessing.
+
+---
+
+# Protect an operation in one call
+
+```ts
+const result = await firewall.protect(
+  {
+    context: {
+      provider: "openai",
+      resource: "llm",
+      userId: "user_123",
+    },
+    estimatedCostUsd: 0.08,
+  },
+
   async () => {
     return callYourProvider();
   },
+
   async (response) => {
-    return calculateActualCost(response.usage);
+    return calculateActualCost(response);
   }
 );
 ```
 
-If the operation throws, the reservation is released automatically. If it succeeds, the real cost is settled into the ledger.
+On success, actual spend is settled.
 
-## Cost estimation
+On failure, the reservation is released.
 
-AI Spend Guard deliberately does **not** hard-code provider pricing because model prices change. Your application owns the pricing table it wants to enforce.
+---
+
+# Budget-as-code: catch cost regressions before deploy
+
+Commit a spend plan:
+
+```json
+{
+  "name": "production-day worst case",
+  "operations": [
+    {
+      "name": "chat-turn",
+      "context": {
+        "provider": "openai",
+        "resource": "llm",
+        "userId": "example-user"
+      },
+      "estimatedCostUsd": 0.02,
+      "count": 20,
+      "concurrent": 5
+    }
+  ]
+}
+```
+
+Then run:
+
+```bash
+ai-spend-guard plan \
+  --file spend-plan.json \
+  --config ai-spend-firewall.config.json
+```
+
+If the plan violates an enforced policy, the CLI exits with code **2**.
+
+That means it can be used in CI:
+
+```bash
+ai-spend-guard plan \
+  --file spend-plan.json \
+  --config ai-spend-firewall.config.json \
+  --max-total 100
+```
+
+A pull request can therefore fail **before** code that creates an unacceptable worst-case AI bill reaches production.
+
+---
+
+# Configuration doctor
+
+Run:
+
+```bash
+ai-spend-guard doctor --config ai-spend-firewall.config.json
+```
+
+It detects common configuration weaknesses such as:
+
+- no enforced global cap
+- all policies accidentally left in observe mode
+- unknown/unpriced operations being allowed
+- no per-operation ceiling
+- no call-count protection
+- no concurrency protection
+
+---
+
+# Explain a decision before executing
+
+```bash
+ai-spend-guard explain \
+  --provider openai \
+  --resource llm \
+  --user user_42 \
+  --project support \
+  --cost 0.08 \
+  --config ai-spend-firewall.config.json
+```
+
+You get the matched policies, projected usage, warnings, and blocking reason.
+
+---
+
+# CLI
+
+```text
+status
+doctor
+explain
+reserve
+settle
+release
+record
+reservations
+plan
+```
+
+Run:
+
+```bash
+ai-spend-guard help
+```
+
+---
+
+# Stale reservation recovery
+
+If a process crashes after reserving money but before settlement, AI Spend Guard intentionally remains **fail-closed**.
+
+Inspect old reservations:
+
+```bash
+ai-spend-guard reservations \
+  --older-than 1h \
+  --config ai-spend-firewall.config.json
+```
+
+Then explicitly release the reservation only after you know the external operation did not complete:
+
+```bash
+ai-spend-guard release \
+  --id <reservation-id> \
+  --config ai-spend-firewall.config.json
+```
+
+It never silently releases stale reservations.
+
+---
+
+# Storage
+
+## MemoryStore
+
+Best for:
+- tests
+- scripts
+- ephemeral use
+
+Not durable.
+
+---
+
+## JsonFileStore
+
+Best for:
+- local apps
+- CLIs
+- one-host deployments
+
+Uses:
+- atomic file replacement
+- process mutex
+- lock file
+
+For stronger local durability/concurrency, use SQLite.
+
+---
+
+## NodeSqliteStore
+
+Node **22.5+** only.
+
+No third-party dependency.
+
+```ts
+import {
+  NodeSqliteStore,
+  SpendFirewall,
+} from "ai-spend-guard";
+
+const store = await NodeSqliteStore.open(
+  ".ai-spend-guard/ledger.sqlite"
+);
+
+const firewall = new SpendFirewall(store, config);
+```
+
+Uses SQLite transactions so multiple workers using the same local database share one budget ledger.
+
+For multi-host/serverless systems, implement `LedgerStore` with a transactional shared database.
+
+---
+
+# Cost calculation
+
+AI Spend Guard intentionally does not ship timeless provider pricing tables.
+
+Provider pricing changes.
+
+Instead, the application supplies the pricing that actually applies to it.
+
+## Tokens
 
 ```ts
 import { estimateTokenCostUsd } from "ai-spend-guard";
 
-const estimatedCostUsd = estimateTokenCostUsd(
+const cost = estimateTokenCostUsd(
   {
     inputTokens: 8_000,
     outputTokens: 2_000,
@@ -123,101 +647,201 @@ const estimatedCostUsd = estimateTokenCostUsd(
 );
 ```
 
-For strict budget protection, estimate from the maximum input/output tokens the request is allowed to consume rather than from an optimistic average.
+## Images / tools / API units
 
-## Configuration file
+```ts
+import { estimateUnitCostUsd } from "ai-spend-guard";
 
-Copy `ai-spend-guard.config.example.json`:
-
-```json
-{
-  "global": {
-    "dailyUsd": 5,
-    "monthlyUsd": 50,
-    "perRequestUsd": 1
-  },
-  "providers": {
-    "openai": { "monthlyUsd": 25 },
-    "anthropic": { "monthlyUsd": 15 },
-    "gemini": { "monthlyUsd": 10 }
-  },
-  "warnAt": [0.8, 0.95],
-  "unknownEstimate": "deny",
-  "ledgerPath": ".ai-spend-guard/ledger.json"
-}
+const cost = estimateUnitCostUsd(
+  4,    // four generations
+  0.05  // $0.05 each
+);
 ```
 
-Daily and monthly windows currently use **UTC**.
+## Audio / video duration
 
-## CLI
+```ts
+import { estimateDurationCostUsd } from "ai-spend-guard";
 
-After `npm run build`:
-
-```bash
-node dist/cli.js status --config ai-spend-guard.config.json
-node dist/cli.js reserve --provider openai --cost 0.05
-node dist/cli.js settle --id <reservation-id> --cost 0.031
-node dist/cli.js release --id <reservation-id>
-node dist/cli.js record --provider openai --cost 0.02
+const cost = estimateDurationCostUsd(
+  90,   // seconds
+  0.60  // price per minute
+);
 ```
 
-`record` is useful for importing historical/manual spend but cannot protect a request that already happened.
+## Composite workflows
 
-## Concurrency model
+```ts
+import { estimateCompositeCostUsd } from "ai-spend-guard";
 
-A naive budget check can still overspend:
+const total = estimateCompositeCostUsd([
+  { units: 1, pricePerUnitUsd: 0.04 },
+  { units: 3, pricePerUnitUsd: 0.08 },
+  { units: 1, pricePerUnitUsd: 0.50 },
+]);
+```
+
+That makes one shared reservation possible for a workflow containing multiple paid components.
+
+---
+
+# Example use cases
+
+## AI chatbot
 
 ```text
-Request A checks: $9 / $10 → allowed
-Request B checks: $9 / $10 → allowed
-A spends $1
-B spends $1
-Result: $11
+global app budget
++ per-user daily budget
++ per-request cost cap
 ```
 
-AI Spend Guard reserves the estimated cost transactionally:
+## Multi-tenant SaaS
 
 ```text
-Request A reserves $1 → projected $10
-Request B tries $1    → blocked
+global budget
++ groupBy projectId
++ groupBy userId
++ route-specific limits
 ```
 
-`MemoryStore` serializes transactions in-process. `JsonFileStore` additionally uses a lock file so multiple Node processes on the same host do not update the ledger simultaneously. Distributed deployments should provide a transactional `LedgerStore` backed by their database.
+## Autonomous research agent
 
-## What a hard limit can and cannot guarantee
+```text
+groupBy agentId + sessionId
++ rolling 1-hour budget
++ call-count cap
++ concurrency cap
+```
 
-**Can protect against:**
+## Image generation app
 
-- accidental loops routed through the guard
-- excessive parallelism routed through the guard
-- requests whose conservative estimate would exceed your configured budget
-- one provider consuming a budget intended for another
+```text
+resource=image
++ per-user quota
++ max cost per generation
+```
 
-**Cannot independently protect against:**
+## Voice AI
 
-- requests made outside AI Spend Guard
-- provider-side minimums, rounding, taxes, credits, delayed usage, or pricing changes
-- actual cost exceeding the amount your application reserved
-- compromised provider credentials used elsewhere
+```text
+resource=audio
++ LLM spend
++ search/tool spend
++ one combined session budget
+```
 
-Use provider-side budgets/alerts as a second line of defense whenever available.
+## Video pipeline
 
-See [`docs/threat-model.md`](docs/threat-model.md) for the security and guarantee model.
+```text
+resource=video
++ strict per-operation ceiling
++ concurrency=1 or 2
++ project monthly budget
+```
 
-## Project status
+## n8n / background automation
 
-**v0.1 — public beta.** The core budget/reservation model is implemented. The next priorities are battle-testing integrations, a database-backed reference store, better import/report tooling, and published provider examples.
+Reserve before the paid node/script runs, settle after the provider returns, and use an idempotency key derived from the workflow execution/job ID.
 
-See [`ROADMAP.md`](ROADMAP.md).
+---
 
-## Contributing
+# Safety model
 
-Issues and focused PRs are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). Agent-assisted contributions should also follow [`AGENTS.md`](AGENTS.md).
+AI Spend Guard can protect against:
 
-## Security
+- runaway loops routed through the firewall
+- accidental retry duplication when idempotency keys are used
+- excessive parallel requests
+- one user/project/agent consuming the whole application budget
+- expensive individual operations
+- budget races under supported transactional storage
+- cost regressions caught by pre-deployment spend plans
 
-Do not post API keys, provider credentials, `.env` files, or private billing exports in issues. See [`SECURITY.md`](SECURITY.md) for responsible reporting.
+It cannot magically protect against:
 
-## License
+- calls that bypass the firewall
+- leaked API keys used somewhere else
+- provider prices that your estimator got wrong
+- actual provider charges higher than the amount you reserved
+- provider-side taxes, rounding, credits, account-specific contracts, or delayed billing
 
-MIT — see [`LICENSE`](LICENSE).
+For serious production systems use AI Spend Guard **together with** provider-side limits, alerts, rate limits, and least-privilege API keys.
+
+See [docs/threat-model.md](docs/threat-model.md).
+
+---
+
+# Configuration schema
+
+JSON Schema is included for editor autocomplete and validation:
+
+- [Firewall config schema](schema/ai-spend-firewall.schema.json)
+- [Spend plan schema](schema/spend-plan.schema.json)
+
+Example files:
+
+- [ai-spend-firewall.config.example.json](ai-spend-firewall.config.example.json)
+- [spend-plan.example.json](spend-plan.example.json)
+
+---
+
+# Legacy simple guard
+
+The original `AiSpendGuard` API is still available for simple global/provider daily/monthly limits.
+
+New projects should generally use **`SpendFirewall`**.
+
+---
+
+# Project status
+
+**v0.2 — active public beta**
+
+Current implemented core:
+
+- universal spend context
+- hierarchical matching
+- dynamic `groupBy` budgets
+- rolling windows
+- dollar/call/concurrency/per-operation limits
+- observe mode
+- idempotency protection
+- reserve/settle accounting
+- plan simulation
+- CLI doctor
+- stale-reservation inspection
+- Memory / JSON / SQLite storage
+- CI + CodeQL
+
+See [ROADMAP.md](ROADMAP.md).
+
+---
+
+# Contributing
+
+Read:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [AGENTS.md](AGENTS.md)
+- [GOVERNANCE.md](GOVERNANCE.md)
+
+Focused issues and pull requests are welcome.
+
+---
+
+# Security
+
+Do not publish:
+
+- provider API keys
+- secrets
+- private billing exports
+- production `.env` files
+
+See [SECURITY.md](SECURITY.md).
+
+---
+
+# License
+
+MIT — see [LICENSE](LICENSE).
