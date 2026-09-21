@@ -102,5 +102,8 @@
     "pg": {
       "optional": true
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
