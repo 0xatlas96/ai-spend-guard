@@ -5,7 +5,10 @@ import {
   loadFirewallConfig,
 } from "./config.js";
 import { inspectFirewallConfig } from "./doctor.js";
+import { verifyBudgetContract } from "./contract.js";
+import type { BudgetContract } from "./contract.js";
 import { SpendPolicyError } from "./firewall-errors.js";
+import { startSpendGuardServer } from "./server.js";
 import { runPolicyTests } from "./policy-tests.js";
 import type { PolicyTestSuite } from "./policy-tests.js";
 import type {
@@ -14,6 +17,7 @@ import type {
   SpendRequest,
 } from "./firewall-types.js";
 import type { SpendContext } from "./types.js";
+import type { SpendGroupField } from "./firewall-types.js";
 import {
   starterFirewallConfig,
   starterPolicyTests,
@@ -48,6 +52,16 @@ function optionalNum(flag: string): number | undefined {
   const parsed = Number(raw);
   if (!Number.isFinite(parsed) || parsed < 0) {
     throw new Error(`${flag} must be a non-negative number`);
+  }
+  return parsed;
+}
+
+function optionalInteger(flag: string): number | undefined {
+  const raw = value(flag);
+  if (raw === undefined) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${flag} must be a non-negative integer`);
   }
   return parsed;
 }
@@ -95,10 +109,59 @@ async function main(): Promise<void> {
 
   if (command === "init") {
     const force = has("--force");
+    const generatedConfig = structuredClone(starterFirewallConfig);
+    const daily = optionalNum("--daily");
+    const monthly = optionalNum("--monthly");
+    const maxCall = optionalNum("--max-call");
+    const maxConcurrent = optionalInteger("--max-concurrent");
+    const perUserDaily = optionalNum("--per-user-daily");
+    const perProjectMonthly = optionalNum("--per-project-monthly");
+
+    const dailyPolicy = generatedConfig.policies.find(
+      (policy) => policy.id === "global-daily-hard-cap"
+    );
+    const monthlyPolicy = generatedConfig.policies.find(
+      (policy) => policy.id === "global-monthly-hard-cap"
+    );
+    if (daily !== undefined && dailyPolicy) dailyPolicy.limitUsd = daily;
+    if (monthly !== undefined && monthlyPolicy) monthlyPolicy.limitUsd = monthly;
+    if (maxCall !== undefined && dailyPolicy) dailyPolicy.maxOperationUsd = maxCall;
+    if (maxConcurrent !== undefined && dailyPolicy) {
+      dailyPolicy.maxConcurrent = maxConcurrent;
+    }
+
+    if (perUserDaily !== undefined) {
+      generatedConfig.policies.push({
+        id: "per-user-daily",
+        groupBy: ["userId"],
+        window: "utc-day",
+        limitUsd: perUserDaily,
+      });
+      const required = new Set<SpendGroupField>(
+        generatedConfig.requiredContext ?? []
+      );
+      required.add("userId");
+      generatedConfig.requiredContext = [...required];
+    }
+
+    if (perProjectMonthly !== undefined) {
+      generatedConfig.policies.push({
+        id: "per-project-monthly",
+        groupBy: ["projectId"],
+        window: "utc-month",
+        limitUsd: perProjectMonthly,
+      });
+      const required = new Set<SpendGroupField>(
+        generatedConfig.requiredContext ?? []
+      );
+      required.add("projectId");
+      generatedConfig.requiredContext = [...required];
+    }
+
     const targets = [
       {
         path: "ai-spend-firewall.config.json",
-        value: starterFirewallConfig,
+        value: generatedConfig,
       },
       {
         path: "spend-plan.json",
@@ -139,6 +202,42 @@ async function main(): Promise<void> {
     console.log(
       "Next: ai-spend-guard doctor && ai-spend-guard test-policies --file policy-tests.json && ai-spend-guard plan --file spend-plan.json"
     );
+    return;
+  }
+
+  if (command === "verify-contract") {
+    const file = required("--file");
+    const raw = await readFile(file, "utf8");
+    const contract = JSON.parse(raw) as BudgetContract;
+    const report = await verifyBudgetContract(contract);
+
+    if (has("--json")) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(
+        `Budget contract ${report.contractName ?? file}: ${report.passed ? "PASS" : "FAIL"}`
+      );
+      for (const finding of report.doctor.findings) {
+        console.log(
+          `  DOCTOR ${finding.severity.toUpperCase()} ${finding.code}: ${finding.message}`
+        );
+      }
+      if (report.policyTests) {
+        console.log(
+          `  POLICY TESTS: ${report.policyTests.passedCases} passed, ${report.policyTests.failedCases} failed`
+        );
+      }
+      for (const plan of report.plans) {
+        console.log(
+          `  PLAN ${plan.id}: ${plan.passed ? "PASS" : "FAIL"} · ${plan.result.totalUsd.toFixed(6)} · ${plan.result.totalCalls} calls`
+        );
+      }
+      for (const failure of report.failures) {
+        console.log(`  FAIL: ${failure}`);
+      }
+    }
+
+    if (!report.passed) process.exitCode = 2;
     return;
   }
 
@@ -191,6 +290,49 @@ async function main(): Promise<void> {
   }
 
   const firewall = await createFirewallFromConfig(configPath());
+
+  if (command === "serve") {
+    const host = value("--host") ?? "127.0.0.1";
+    const rawPort = value("--port") ?? "8787";
+    const port = Number(rawPort);
+    if (!Number.isInteger(port) || port < 0 || port > 65535) {
+      throw new Error("--port must be an integer between 0 and 65535");
+    }
+
+    const token = process.env.AI_SPEND_GUARD_TOKEN;
+    const running = await startSpendGuardServer(firewall, {
+      host,
+      port,
+      ...(token ? { token } : {}),
+      dashboard: !has("--no-dashboard"),
+      log: (message) => console.error(message),
+    });
+
+    console.log(`AI Spend Guard server: ${running.url}`);
+    if (host !== "127.0.0.1" && host !== "::1" && host !== "localhost") {
+      console.log("Remote bind protected by AI_SPEND_GUARD_TOKEN.");
+    }
+    if (!has("--no-dashboard")) {
+      console.log(`Dashboard: ${running.url}/`);
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      let closing = false;
+      const close = async () => {
+        if (closing) return;
+        closing = true;
+        try {
+          await running.close();
+          resolve();
+        } catch (error) {
+          reject(error);
+        }
+      };
+      process.once("SIGINT", () => void close());
+      process.once("SIGTERM", () => void close());
+    });
+    return;
+  }
 
   if (command === "status") {
     const status = await firewall.status();

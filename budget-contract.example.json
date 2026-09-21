@@ -1,0 +1,97 @@
+{
+  "$schema": "./schema/budget-contract.schema.json",
+  "version": 1,
+  "name": "production AI spend contract",
+  "description": "A single versioned artifact proving our hard caps, allow/deny behavior, and expected workload cost.",
+  "now": "2026-09-21T12:00:00.000Z",
+  "firewall": {
+    "requiredContext": ["provider", "resource", "userId"],
+    "unknownEstimate": "deny",
+    "policies": [
+      {
+        "id": "global-monthly",
+        "window": "utc-month",
+        "limitUsd": 50,
+        "limitCalls": 50000,
+        "maxOperationUsd": 2,
+        "maxConcurrent": 25
+      },
+      {
+        "id": "per-user-day",
+        "groupBy": ["userId"],
+        "window": "utc-day",
+        "limitUsd": 1,
+        "limitCalls": 500
+      }
+    ]
+  },
+  "policyTests": {
+    "name": "production guarantees",
+    "now": "2026-09-21T12:00:00.000Z",
+    "cases": [
+      {
+        "name": "normal chat is allowed",
+        "request": {
+          "context": {
+            "provider": "openai",
+            "resource": "llm",
+            "userId": "alice"
+          },
+          "estimatedCostUsd": 0.05
+        },
+        "expect": {
+          "allowed": true,
+          "blockingPolicyIds": []
+        }
+      },
+      {
+        "name": "spent user cannot cross one dollar",
+        "setup": [
+          {
+            "type": "record",
+            "context": {
+              "provider": "openai",
+              "resource": "llm",
+              "userId": "alice"
+            },
+            "actualCostUsd": 0.98
+          }
+        ],
+        "request": {
+          "context": {
+            "provider": "openai",
+            "resource": "llm",
+            "userId": "alice"
+          },
+          "estimatedCostUsd": 0.05
+        },
+        "expect": {
+          "allowed": false,
+          "blockingPolicyIds": ["per-user-day"]
+        }
+      }
+    ]
+  },
+  "plans": [
+    {
+      "id": "daily-chat-workload",
+      "maxTotalUsd": 10,
+      "plan": {
+        "name": "one representative user day",
+        "operations": [
+          {
+            "name": "chat-turn",
+            "context": {
+              "provider": "openai",
+              "resource": "llm",
+              "userId": "example-user"
+            },
+            "estimatedCostUsd": 0.02,
+            "count": 20,
+            "concurrent": 5
+          }
+        ]
+      }
+    }
+  ]
+}

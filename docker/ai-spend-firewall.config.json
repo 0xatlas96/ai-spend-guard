@@ -1,0 +1,23 @@
+{
+  "requiredContext": ["provider", "resource"],
+  "unknownEstimate": "deny",
+  "staleAfterMs": 3600000,
+  "ledgerPath": "/data/ledger.json",
+  "policies": [
+    {
+      "id": "global-daily-hard-cap",
+      "window": "utc-day",
+      "limitUsd": 5,
+      "limitCalls": 5000,
+      "maxOperationUsd": 1,
+      "maxConcurrent": 20,
+      "warnAt": [0.8, 0.95]
+    },
+    {
+      "id": "global-monthly-hard-cap",
+      "window": "utc-month",
+      "limitUsd": 20,
+      "warnAt": [0.8, 0.95]
+    }
+  ]
+}

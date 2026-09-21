@@ -24,6 +24,10 @@ Runtime: Node.js 20+; NodeSqliteStore requires Node.js 22.5+
 - MemoryStore — in-process transactional ledger
 - JsonFileStore — local/single-host persistent ledger
 - NodeSqliteStore — zero-third-party-dependency SQLite ledger on Node 22.5+
+- PostgresStore (subpath `ai-spend-guard/postgres`) — multi-host transactional ledger
+- createVercelAiSpendMiddleware (subpath `ai-spend-guard/vercel-ai`) — AI SDK 7 generate/stream guard
+- startSpendGuardServer — authenticated HTTP sidecar + local dashboard
+- verifyBudgetContract — versioned config + policy tests + spend plan verification
 - runPolicyTests — deterministic policy contract tests
 - simulateSpendPlan — budget-as-code pre-deployment cost simulation
 - inspectFirewallConfig — configuration safety doctor
@@ -46,7 +50,9 @@ Outstanding reservations count against budget so concurrent requests cannot all 
 - Unknown estimates fail closed by default.
 - Provider pricing is caller-owned because commercial prices change.
 - Calls that bypass the firewall are invisible to it.
-- Multi-host deployments need a transactional shared LedgerStore.
+- Multi-host deployments should use the transactional PostgresStore or another correct shared LedgerStore.
+- The HTTP sidecar requires bearer authentication on non-loopback binds.
+- Vercel streaming calls settle on the final finish/usage event; ambiguous endings remain reserved.
 - Ambiguous provider failures keep the reservation open for reconciliation.
 - Do not introduce telemetry or network calls into the core.
 - Do not weaken requiredContext, grouped-budget isolation, transaction semantics, or fail-closed behavior without tests and documentation.

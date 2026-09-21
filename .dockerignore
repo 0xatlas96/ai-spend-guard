@@ -1,0 +1,8 @@
+node_modules
+dist
+.git
+.github
+.ai-spend-guard
+coverage
+*.log
+.DS_Store

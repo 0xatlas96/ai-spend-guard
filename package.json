@@ -1,6 +1,6 @@
 {
   "name": "ai-spend-guard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Universal financial firewall and budget-as-code toolkit for AI apps, agents, media generation, tools, and paid APIs.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,16 @@
     "./schema/ai-spend-firewall.schema.json": "./schema/ai-spend-firewall.schema.json",
     "./schema/spend-plan.schema.json": "./schema/spend-plan.schema.json",
     "./schema/policy-tests.schema.json": "./schema/policy-tests.schema.json",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./vercel-ai": {
+      "types": "./dist/vercel-ai.d.ts",
+      "import": "./dist/vercel-ai.js"
+    },
+    "./postgres": {
+      "types": "./dist/postgres-store.d.ts",
+      "import": "./dist/postgres-store.js"
+    },
+    "./schema/budget-contract.schema.json": "./schema/budget-contract.schema.json"
   },
   "bin": {
     "ai-spend-guard": "./dist/cli.js"
@@ -22,12 +31,14 @@
     "dist",
     "schema",
     "docs",
+    "examples",
     "README.md",
     "LICENSE",
     "SECURITY.md",
     "ai-spend-firewall.config.example.json",
     "spend-plan.example.json",
-    "policy-tests.example.json"
+    "policy-tests.example.json",
+    "budget-contract.example.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -36,7 +47,7 @@
     "ci": "npm run typecheck && npm test && npm run verify:examples && npm run pack:check",
     "prepublishOnly": "npm run ci",
     "prepare": "npm run build",
-    "verify:examples": "node dist/cli.js doctor --config ai-spend-firewall.config.example.json && node dist/cli.js test-policies --file policy-tests.example.json --config ai-spend-firewall.config.example.json && node dist/cli.js plan --file spend-plan.example.json --config ai-spend-firewall.config.example.json --max-total 10",
+    "verify:examples": "node dist/cli.js doctor --config ai-spend-firewall.config.example.json && node dist/cli.js test-policies --file policy-tests.example.json --config ai-spend-firewall.config.example.json && node dist/cli.js plan --file spend-plan.example.json --config ai-spend-firewall.config.example.json --max-total 10 && node dist/cli.js verify-contract --file budget-contract.example.json",
     "pack:check": "npm pack --dry-run"
   },
   "engines": {
@@ -59,7 +70,11 @@
     "ai-cost",
     "llmops",
     "agentic-ai",
-    "cost-guardrails"
+    "cost-guardrails",
+    "vercel-ai-sdk",
+    "n8n",
+    "sidecar",
+    "ai-governance"
   ],
   "repository": {
     "type": "git",
@@ -73,7 +88,25 @@
   "author": "0xatlas96",
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "@ai-sdk/provider": "^4.0.17",
+    "pg": "^8.23.0",
+    "@types/pg": "^8.23.1"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "peerDependencies": {
+    "@ai-sdk/provider": "^4.0.0",
+    "pg": "^8.23.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/provider": {
+      "optional": true
+    },
+    "pg": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

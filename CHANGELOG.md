@@ -2,6 +2,38 @@
 
 All notable changes will be documented here.
 
+## 0.3.0 - unreleased
+
+### Added
+
+- authenticated local HTTP sidecar and no-build control-center dashboard
+- OpenAPI 3.1 contract for sidecar integrations
+- n8n/no-code reserve → paid operation → settle integration pattern
+- Vercel AI SDK 7 / LanguageModelV3 middleware for generate and streaming calls
+- optional transactional Postgres store with shared multi-worker budget enforcement
+- real Postgres concurrency tests in CI
+- versioned Budget Contracts combining firewall config, policy tests, and spend plans
+- `verify-contract` CLI command for CI/deployment budget gates
+- guided `init` flags for global, per-user, and per-project budgets
+- multi-OS CI across Linux, Windows, and macOS plus Node 20/22/24
+- OIDC-based npm Trusted Publishing workflow scaffold
+- first-class integration examples for firewall, Vercel AI SDK, Postgres, and HTTP sidecar
+
+### Changed
+
+- package version moved to 0.3.0 for the production-integration release
+- README quickstart now uses fail-closed `protect()` instead of unsafe blanket release-on-error logic
+- optional integration dependencies are exposed through subpath exports so the core stays lightweight
+- production storage guidance now distinguishes single-host JSON/SQLite from multi-host Postgres
+
+### Security
+
+- non-loopback HTTP binds require bearer authentication
+- sidecar uses constant-time token comparison, body-size limits, no-store/CSP/frame/referrer headers, and no wildcard CORS
+- ambiguous provider failures in the Vercel middleware remain reserved for reconciliation
+- distributed Postgres reservations use row-level transactional locking
+
+
 ## 0.2.0 - 2026-09-21
 
 ### Added

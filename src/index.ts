@@ -1,5 +1,8 @@
 export { AiSpendGuard, Reservation } from "./guard.js";
 export { SpendFirewall, FirewallReservation } from "./firewall.js";
+export { startSpendGuardServer } from "./server.js";
+export { spendGuardOpenApiDocument } from "./openapi.js";
+export type { RunningSpendGuardServer, SpendGuardServerOptions } from "./server.js";
 export { MemoryStore, JsonFileStore, emptyLedger } from "./store.js";
 export { NodeSqliteStore } from "./sqlite-store.js";
 export type { NodeSqliteStoreOptions } from "./sqlite-store.js";
@@ -16,6 +19,13 @@ export {
   estimateCompositeCostUsd,
 } from "./cost.js";
 export { simulateSpendPlan } from "./plan.js";
+export { verifyBudgetContract } from "./contract.js";
+export type {
+  BudgetContract,
+  BudgetContractPlan,
+  BudgetContractPlanResult,
+  BudgetContractReport,
+} from "./contract.js";
 export { runPolicyTests } from "./policy-tests.js";
 export type {
   PolicyTestCase,
