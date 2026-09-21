@@ -176,6 +176,14 @@ export interface FirewallRecordResult {
   postSettlementViolations: PolicyViolation[];
 }
 
+export interface ReservationAdjustmentResult {
+  reservationId: string;
+  previousEstimatedCostUsd: number;
+  estimatedCostUsd: number;
+  /** Present when the reservation was increased and required a fresh admission decision. */
+  decision?: FirewallDecision;
+}
+
 export interface FirewallSettlementResult {
   charge: ChargeRecord;
   overrunUsd: number;
