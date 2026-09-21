@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/0xatlas96/ai-spend-guard/main/schema/policy-tests.schema.json",
+  "title": "AI Spend Guard Policy Test Suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["cases"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string" },
+    "now": { "type": "string", "format": "date-time" },
+    "cases": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/testCase" }
+    }
+  },
+  "$defs": {
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "provider": { "type": "string" },
+        "model": { "type": "string" },
+        "resource": { "type": "string" },
+        "projectId": { "type": "string" },
+        "userId": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "agentId": { "type": "string" },
+        "route": { "type": "string" },
+        "environment": { "type": "string" },
+        "tags": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["estimatedCostUsd"],
+      "properties": {
+        "context": { "$ref": "#/$defs/context" },
+        "estimatedCostUsd": { "type": "number", "minimum": 0 },
+        "requestId": { "type": "string" },
+        "idempotencyKey": { "type": "string" },
+        "metadata": { "type": "object" }
+      }
+    },
+    "setup": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "actualCostUsd"],
+          "properties": {
+            "type": { "const": "record" },
+            "context": { "$ref": "#/$defs/context" },
+            "actualCostUsd": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "estimatedCostUsd"],
+          "properties": {
+            "type": { "const": "reserve" },
+            "context": { "$ref": "#/$defs/context" },
+            "estimatedCostUsd": { "type": "number", "minimum": 0 }
+          }
+        }
+      ]
+    },
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed"],
+      "properties": {
+        "allowed": { "type": "boolean" },
+        "blockingPolicyIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "observedPolicyIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "testCase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "request", "expect"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "setup": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/setup" }
+        },
+        "request": { "$ref": "#/$defs/request" },
+        "expect": { "$ref": "#/$defs/expect" }
+      }
+    }
+  }
+}
