@@ -94,6 +94,15 @@ Until the npm release is published, install directly from GitHub:
 
 ```bash
 npm install github:0xatlas96/ai-spend-guard
+npx ai-spend-guard init
+```
+
+`init` creates a safe starter firewall config, spend plan, and policy contract suite without overwriting existing files. Then validate them:
+
+```bash
+npx ai-spend-guard doctor
+npx ai-spend-guard test-policies --file policy-tests.json
+npx ai-spend-guard plan --file spend-plan.json
 ```
 
 Or clone the repository:
@@ -599,6 +608,7 @@ You get the matched policies, projected usage, warnings, and blocking reason.
 # CLI
 
 ```text
+init
 status
 doctor
 test-policies
