@@ -22,6 +22,7 @@ import type {
   FirewallProtectionResult,
   FirewallRecordResult,
   FirewallSettleInput,
+  ReservationAdjustmentResult,
   FirewallSettlementResult,
   FirewallStatus,
   FirewallWarningEvent,
@@ -35,10 +36,14 @@ import type {
 
 export class FirewallReservation {
   readonly id: string;
-  readonly estimatedCostUsd: number;
   readonly context: SpendContext;
   readonly decision: FirewallDecision;
+  private estimateUsd: number;
   private closed = false;
+
+  get estimatedCostUsd(): number {
+    return this.estimateUsd;
+  }
 
   constructor(
     private readonly firewall: SpendFirewall,
@@ -46,9 +51,21 @@ export class FirewallReservation {
     decision: FirewallDecision
   ) {
     this.id = record.id;
-    this.estimatedCostUsd = record.estimatedCostUsd;
+    this.estimateUsd = record.estimatedCostUsd;
     this.context = normalizeContext(record.context);
     this.decision = decision;
+  }
+
+  async resize(estimatedCostUsd: number): Promise<ReservationAdjustmentResult> {
+    if (this.closed) throw new ReservationNotFoundError(this.id);
+    const result = await this.firewall.resize(this.id, estimatedCostUsd);
+    this.estimateUsd = result.estimatedCostUsd;
+    return result;
+  }
+
+  async topUp(additionalUsd: number): Promise<ReservationAdjustmentResult> {
+    const additional = money(additionalUsd, "additionalUsd");
+    return this.resize(this.estimateUsd + additional);
   }
 
   async settle(input: FirewallSettleInput | number): Promise<FirewallSettlementResult> {
@@ -200,6 +217,79 @@ export class SpendFirewall {
         ),
       };
     });
+  }
+
+  async resize(
+    reservationId: string,
+    estimatedCostUsd: number
+  ): Promise<ReservationAdjustmentResult> {
+    const nextEstimate = money(estimatedCostUsd, "estimatedCostUsd");
+    const now = this.now();
+
+    const result = await this.store.transact((state) => {
+      const reservation = state.reservations[reservationId];
+      if (!reservation) throw new ReservationNotFoundError(reservationId);
+
+      const previousEstimatedCostUsd = reservation.estimatedCostUsd;
+      if (Math.abs(nextEstimate - previousEstimatedCostUsd) <= Number.EPSILON) {
+        return {
+          reservationId,
+          previousEstimatedCostUsd,
+          estimatedCostUsd: previousEstimatedCostUsd,
+        };
+      }
+
+      if (nextEstimate < previousEstimatedCostUsd) {
+        reservation.estimatedCostUsd = nextEstimate;
+        return {
+          reservationId,
+          previousEstimatedCostUsd,
+          estimatedCostUsd: nextEstimate,
+        };
+      }
+
+      const context = normalizeContext(
+        reservation.context ?? { provider: reservation.provider }
+      );
+
+      delete state.reservations[reservationId];
+      const decision = evaluateSpendRequest(
+        state,
+        this.config.policies,
+        context,
+        nextEstimate,
+        now
+      );
+
+      if (!decision.allowed) {
+        state.reservations[reservationId] = reservation;
+        return {
+          reservationId,
+          previousEstimatedCostUsd,
+          estimatedCostUsd: previousEstimatedCostUsd,
+          decision,
+        };
+      }
+
+      reservation.estimatedCostUsd = nextEstimate;
+      state.reservations[reservationId] = reservation;
+      return {
+        reservationId,
+        previousEstimatedCostUsd,
+        estimatedCostUsd: nextEstimate,
+        decision,
+      };
+    });
+
+    if (result.decision) {
+      await this.emitDecision(result.decision);
+      await this.emitWarnings(result.decision);
+      if (!result.decision.allowed) {
+        throw new SpendPolicyError(result.decision);
+      }
+    }
+
+    return result;
   }
 
   async release(reservationId: string): Promise<void> {
