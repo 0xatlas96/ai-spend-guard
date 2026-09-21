@@ -18,6 +18,13 @@ export {
   estimateCompositeCostUsd,
 } from "./cost.js";
 export { simulateSpendPlan } from "./plan.js";
+export { verifyBudgetContract } from "./contract.js";
+export type {
+  BudgetContract,
+  BudgetContractPlan,
+  BudgetContractPlanResult,
+  BudgetContractReport,
+} from "./contract.js";
 export { runPolicyTests } from "./policy-tests.js";
 export type {
   PolicyTestCase,
