@@ -425,3 +425,43 @@ test("policy contract suite proves allow/deny behavior before deployment", async
   assert.equal(result.passedCases, 2);
   assert.equal(result.failedCases, 0);
 });
+
+
+test("required provider cannot be satisfied by the implicit custom fallback", async () => {
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    {
+      requiredContext: ["provider", "resource"],
+      policies: [{ id: "global", limitUsd: 10 }],
+    },
+    { now: fixedNow }
+  );
+
+  await assert.rejects(
+    () =>
+      firewall.reserve({
+        context: { resource: "llm" },
+        estimatedCostUsd: 0.1,
+      }),
+    MissingSpendContextError
+  );
+});
+
+test("doctor warns when grouped identity fields are not required", () => {
+  const report = inspectFirewallConfig({
+    policies: [
+      { id: "global", limitUsd: 10 },
+      {
+        id: "per-user",
+        groupBy: ["userId"],
+        limitUsd: 1,
+      },
+    ],
+  });
+
+  assert.ok(
+    report.findings.some(
+      (finding) => finding.code === "group-context-not-required"
+    )
+  );
+});
