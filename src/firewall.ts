@@ -11,6 +11,7 @@ import {
   validateFirewallConfig,
 } from "./policy.js";
 import { ReservationNotFoundError, UnknownEstimateError } from "./errors.js";
+import { simulateSpendPlan } from "./plan.js";
 import type { LedgerStore, ReservationRecord, SpendContext } from "./types.js";
 import type {
   FirewallConfig,
@@ -23,6 +24,8 @@ import type {
   FirewallStatus,
   FirewallWarningEvent,
   SpendPolicyMatch,
+  SpendPlan,
+  SpendPlanResult,
   SpendRequest,
   StaleReservation,
 } from "./firewall-types.js";
@@ -294,6 +297,11 @@ export class SpendFirewall {
         (reservation) => now.getTime() - new Date(reservation.createdAt).getTime() >= staleAfterMs
       ).length,
     };
+  }
+
+  async simulate(plan: SpendPlan): Promise<SpendPlanResult> {
+    const state = await this.store.read();
+    return simulateSpendPlan(state, this.config, plan, this.now());
   }
 
   async listReservations(options: {
