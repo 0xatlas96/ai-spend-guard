@@ -36,7 +36,7 @@ export class IdempotencyConflictError extends AiSpendGuardError {
 }
 
 export class InvalidPolicyError extends AiSpendGuardError {
-  readonly policyId?: string;
+  readonly policyId: string | undefined;
 
   constructor(message: string, policyId?: string) {
     super(message);
