@@ -4,27 +4,62 @@
   "title": "AI Spend Guard Firewall Config",
   "type": "object",
   "additionalProperties": false,
-  "required": ["policies"],
+  "required": [
+    "policies"
+  ],
   "properties": {
-    "$schema": { "type": "string" },
-    "unknownEstimate": { "enum": ["deny", "allow"], "default": "deny" },
-    "defaultProvider": { "type": "string", "minLength": 1 },
-    "staleAfterMs": { "type": "number", "minimum": 0 },
-    "ledgerPath": { "type": "string", "minLength": 1 },
+    "$schema": {
+      "type": "string"
+    },
+    "unknownEstimate": {
+      "enum": [
+        "deny",
+        "allow"
+      ],
+      "default": "deny"
+    },
+    "defaultProvider": {
+      "type": "string",
+      "minLength": 1
+    },
+    "staleAfterMs": {
+      "type": "number",
+      "minimum": 0
+    },
+    "ledgerPath": {
+      "type": "string",
+      "minLength": 1
+    },
     "policies": {
       "type": "array",
-      "items": { "$ref": "#/$defs/policy" }
+      "items": {
+        "$ref": "#/$defs/policy"
+      }
+    },
+    "requiredContext": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(provider|model|resource|projectId|userId|sessionId|agentId|route|environment|tag:.+)$"
+      }
     }
   },
   "$defs": {
     "matchValue": {
       "oneOf": [
-        { "type": "string", "minLength": 1 },
+        {
+          "type": "string",
+          "minLength": 1
+        },
         {
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "minLength": 1 }
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       ]
     },
@@ -32,30 +67,61 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "provider": { "$ref": "#/$defs/matchValue" },
-        "model": { "$ref": "#/$defs/matchValue" },
-        "resource": { "$ref": "#/$defs/matchValue" },
-        "projectId": { "$ref": "#/$defs/matchValue" },
-        "userId": { "$ref": "#/$defs/matchValue" },
-        "sessionId": { "$ref": "#/$defs/matchValue" },
-        "agentId": { "$ref": "#/$defs/matchValue" },
-        "route": { "$ref": "#/$defs/matchValue" },
-        "environment": { "$ref": "#/$defs/matchValue" },
+        "provider": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "model": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "resource": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "projectId": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "userId": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "sessionId": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "agentId": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "route": {
+          "$ref": "#/$defs/matchValue"
+        },
+        "environment": {
+          "$ref": "#/$defs/matchValue"
+        },
         "tags": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/matchValue" }
+          "additionalProperties": {
+            "$ref": "#/$defs/matchValue"
+          }
         }
       }
     },
     "window": {
       "oneOf": [
-        { "enum": ["utc-day", "utc-month", "lifetime"] },
+        {
+          "enum": [
+            "utc-day",
+            "utc-month",
+            "lifetime"
+          ]
+        },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["rollingMs"],
+          "required": [
+            "rollingMs"
+          ],
           "properties": {
-            "rollingMs": { "type": "number", "exclusiveMinimum": 0 }
+            "rollingMs": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
           }
         }
       ]
@@ -63,11 +129,20 @@
     "policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id"],
+      "required": [
+        "id"
+      ],
       "properties": {
-        "id": { "type": "string", "minLength": 1 },
-        "description": { "type": "string" },
-        "match": { "$ref": "#/$defs/match" },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "match": {
+          "$ref": "#/$defs/match"
+        },
         "groupBy": {
           "type": "array",
           "uniqueItems": true,
@@ -76,22 +151,61 @@
             "pattern": "^(provider|model|resource|projectId|userId|sessionId|agentId|route|environment|tag:.+)$"
           }
         },
-        "window": { "$ref": "#/$defs/window" },
-        "limitUsd": { "type": "number", "minimum": 0 },
-        "limitCalls": { "type": "integer", "minimum": 0 },
-        "maxOperationUsd": { "type": "number", "minimum": 0 },
-        "maxConcurrent": { "type": "integer", "minimum": 0 },
-        "mode": { "enum": ["enforce", "observe"] },
+        "window": {
+          "$ref": "#/$defs/window"
+        },
+        "limitUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "limitCalls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "maxOperationUsd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "maxConcurrent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode": {
+          "enum": [
+            "enforce",
+            "observe"
+          ]
+        },
         "warnAt": {
           "type": "array",
-          "items": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
         }
       },
       "anyOf": [
-        { "required": ["limitUsd"] },
-        { "required": ["limitCalls"] },
-        { "required": ["maxOperationUsd"] },
-        { "required": ["maxConcurrent"] }
+        {
+          "required": [
+            "limitUsd"
+          ]
+        },
+        {
+          "required": [
+            "limitCalls"
+          ]
+        },
+        {
+          "required": [
+            "maxOperationUsd"
+          ]
+        },
+        {
+          "required": [
+            "maxConcurrent"
+          ]
+        }
       ]
     }
   }
