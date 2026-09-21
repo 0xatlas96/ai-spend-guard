@@ -3,9 +3,9 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /src
 
 COPY package.json tsconfig.json ./
-RUN npm install --no-audit --no-fund
-
 COPY src ./src
+
+RUN npm install --no-audit --no-fund
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
