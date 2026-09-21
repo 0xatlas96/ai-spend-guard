@@ -23,11 +23,21 @@ Useful reports include:
 We especially care about:
 
 - budget bypasses caused by race conditions
+- policy bypasses caused by missing/misclassified spend context
+- incorrect `groupBy` isolation between users/projects/agents
+- retry/idempotency flaws that execute paid side effects twice
 - ledger corruption that silently lowers recorded spend
 - path traversal or unsafe file handling
 - accidental recording/exposure of provider secrets
 - code paths that fail open after persistence errors
+- SQLite/JSON transaction or recovery behavior that loses settled/reserved spend
 
 ## Secrets
 
 AI Spend Guard does not need provider API keys. Never add keys to config examples, tests, issues, or the ledger.
+
+## Policy safety
+
+For policies scoped to identities such as `userId`, `projectId`, or `agentId`, configure `requiredContext` for fields that must never be omitted. Otherwise an application bug that forgets an identity may fall into a different group than intended.
+
+Policy changes should be covered by `test-policies` contract fixtures when they change expected allow/deny behavior.
