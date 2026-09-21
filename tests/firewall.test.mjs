@@ -646,3 +646,32 @@ test("progressive top-up is atomically blocked without losing the original reser
   await first.release();
   await second.release();
 });
+
+
+test("firewall clones and freezes validated config against runtime mutation", async () => {
+  const config = {
+    policies: [{ id: "global", window: "lifetime", limitUsd: 1 }],
+  };
+
+  const firewall = new SpendFirewall(
+    new MemoryStore(),
+    config,
+    { now: fixedNow }
+  );
+
+  config.policies[0].limitUsd = 1000;
+
+  await assert.rejects(
+    () =>
+      firewall.reserve({
+        context: { provider: "openai", resource: "llm" },
+        estimatedCostUsd: 2,
+      }),
+    SpendPolicyError
+  );
+
+  assert.equal(firewall.config.policies[0].limitUsd, 1);
+  assert.equal(Object.isFrozen(firewall.config), true);
+  assert.equal(Object.isFrozen(firewall.config.policies), true);
+  assert.equal(Object.isFrozen(firewall.config.policies[0]), true);
+});
