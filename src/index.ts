@@ -1,6 +1,8 @@
 export { AiSpendGuard, Reservation } from "./guard.js";
 export { SpendFirewall, FirewallReservation } from "./firewall.js";
 export { MemoryStore, JsonFileStore, emptyLedger } from "./store.js";
+export { NodeSqliteStore } from "./sqlite-store.js";
+export type { NodeSqliteStoreOptions } from "./sqlite-store.js";
 export {
   createGuardFromConfig,
   loadConfig,
