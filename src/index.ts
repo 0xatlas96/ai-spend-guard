@@ -28,6 +28,7 @@ export {
   DuplicateOperationError,
   IdempotencyConflictError,
   InvalidPolicyError,
+  MissingSpendContextError,
   PlanViolationError,
   SpendPolicyError,
 } from "./firewall-errors.js";
