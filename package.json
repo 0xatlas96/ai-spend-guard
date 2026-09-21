@@ -1,6 +1,6 @@
 {
   "name": "ai-spend-guard",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Universal financial firewall and budget-as-code toolkit for AI apps, agents, media generation, tools, and paid APIs.",
   "type": "module",
   "main": "./dist/index.js",
@@ -13,7 +13,11 @@
     "./schema/ai-spend-firewall.schema.json": "./schema/ai-spend-firewall.schema.json",
     "./schema/spend-plan.schema.json": "./schema/spend-plan.schema.json",
     "./schema/policy-tests.schema.json": "./schema/policy-tests.schema.json",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./vercel-ai": {
+      "types": "./dist/vercel-ai.d.ts",
+      "import": "./dist/vercel-ai.js"
+    }
   },
   "bin": {
     "ai-spend-guard": "./dist/cli.js"
@@ -59,7 +63,11 @@
     "ai-cost",
     "llmops",
     "agentic-ai",
-    "cost-guardrails"
+    "cost-guardrails",
+    "vercel-ai-sdk",
+    "n8n",
+    "sidecar",
+    "ai-governance"
   ],
   "repository": {
     "type": "git",
@@ -73,7 +81,16 @@
   "author": "0xatlas96",
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "@ai-sdk/provider": "^4.0.17"
   },
-  "sideEffects": false
+  "sideEffects": false,
+  "peerDependencies": {
+    "@ai-sdk/provider": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/provider": {
+      "optional": true
+    }
+  }
 }
