@@ -88,12 +88,16 @@ export class SpendFirewall {
   private readonly onDecision?: FirewallOptions["onDecision"];
   private readonly onWarning?: FirewallOptions["onWarning"];
 
+  readonly config: FirewallConfig;
+
   constructor(
     private readonly store: LedgerStore,
-    readonly config: FirewallConfig,
+    config: FirewallConfig,
     options: FirewallOptions = {}
   ) {
-    validateFirewallConfig(config);
+    const clonedConfig = structuredClone(config);
+    validateFirewallConfig(clonedConfig);
+    this.config = deepFreeze(clonedConfig);
     this.now = options.now ?? (() => new Date());
     this.onDecision = options.onDecision;
     this.onWarning = options.onWarning;
@@ -617,4 +621,15 @@ function hasContextField(context: SpendContext, field: SpendGroupField): boolean
     default:
       return false;
   }
+}
+
+
+function deepFreeze<T>(value: T): T {
+  if (value && typeof value === "object" && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value as Record<string, unknown>)) {
+      deepFreeze(child);
+    }
+  }
+  return value;
 }
