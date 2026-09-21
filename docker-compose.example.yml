@@ -1,0 +1,21 @@
+services:
+  ai-spend-guard:
+    build: .
+    restart: unless-stopped
+    environment:
+      AI_SPEND_GUARD_TOKEN: "${AI_SPEND_GUARD_TOKEN:?Set AI_SPEND_GUARD_TOKEN}"
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ./docker/ai-spend-firewall.config.json:/config/ai-spend-firewall.config.json:ro
+      - ai-spend-guard-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  ai-spend-guard-data:
