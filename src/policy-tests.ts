@@ -94,12 +94,12 @@ export async function runPolicyTests(
     for (const step of testCase.setup ?? []) {
       if (step.type === "record") {
         await firewall.recordActual({
-          context: step.context,
+          ...(step.context ? { context: step.context } : {}),
           actualCostUsd: step.actualCostUsd,
         });
       } else if (step.type === "reserve") {
         await firewall.reserve({
-          context: step.context,
+          ...(step.context ? { context: step.context } : {}),
           estimatedCostUsd: step.estimatedCostUsd,
         });
       } else {
