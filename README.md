@@ -475,6 +475,33 @@ A failure while calculating actual cost or settling the ledger also remains fail
 
 ---
 
+# Progressive reservations for streams and multi-step work
+
+Sometimes you cannot know the full cost envelope at the beginning of a long stream or agent workflow. Start with a conservative reservation and **increase it before the next paid phase**:
+
+```ts
+const reservation = await firewall.reserve({
+  context: {
+    provider: "openai",
+    resource: "llm",
+    sessionId: "session_123"
+  },
+  estimatedCostUsd: 0.10
+});
+
+// Before allowing another expensive phase:
+await reservation.topUp(0.05);
+
+// Or resize to an absolute new ceiling:
+await reservation.resize(0.20);
+```
+
+An increase is re-evaluated atomically against the same policies. If the higher reservation would exceed budget, the top-up is blocked and the **original reservation remains intact**. Decreasing a reservation is always safe and immediately frees headroom.
+
+This primitive can be used for streaming, multi-turn agents, progressive media jobs, or any workflow where cost becomes clearer over time.
+
+---
+
 # Budget-as-code: catch cost regressions before deploy
 
 Commit a spend plan:
