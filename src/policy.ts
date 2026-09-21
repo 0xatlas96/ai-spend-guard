@@ -20,6 +20,19 @@ export function validateFirewallConfig(config: FirewallConfig): void {
     throw new InvalidPolicyError("Firewall config must contain a policies array.");
   }
 
+  if (config.requiredContext) {
+    const required = new Set<string>();
+    for (const field of config.requiredContext) {
+      if (!isValidGroupField(field)) {
+        throw new InvalidPolicyError(`Invalid requiredContext field: ${String(field)}.`);
+      }
+      if (required.has(field)) {
+        throw new InvalidPolicyError(`Duplicate requiredContext field: ${field}.`);
+      }
+      required.add(field);
+    }
+  }
+
   const ids = new Set<string>();
   for (const policy of config.policies) {
     if (!policy.id?.trim()) throw new InvalidPolicyError("Every policy needs a non-empty id.");
@@ -64,9 +77,9 @@ export function validateFirewallConfig(config: FirewallConfig): void {
             policy.id
           );
         }
-        if (field.startsWith("tag:") && field.slice(4).trim() === "") {
+        if (!isValidGroupField(field)) {
           throw new InvalidPolicyError(
-            `Policy "${policy.id}" contains an empty tag groupBy key.`,
+            `Policy "${policy.id}" contains invalid groupBy field "${String(field)}".`,
             policy.id
           );
         }
@@ -486,4 +499,20 @@ function integerNonNegative(value: number | undefined, label: string, policyId: 
       policyId
     );
   }
+}
+
+function isValidGroupField(field: unknown): field is SpendGroupField {
+  if (typeof field !== "string" || field.length === 0) return false;
+  if (field.startsWith("tag:")) return field.slice(4).trim().length > 0;
+  return [
+    "provider",
+    "model",
+    "resource",
+    "projectId",
+    "userId",
+    "sessionId",
+    "agentId",
+    "route",
+    "environment",
+  ].includes(field);
 }
