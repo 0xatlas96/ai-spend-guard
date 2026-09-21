@@ -221,6 +221,18 @@ Every operation can describe itself with context:
 
 Policies can match any of these dimensions.
 
+## Fail closed when context is missing
+
+A scoped budget is only safe if the application always supplies the identity it depends on. Require critical context fields:
+
+```json
+{
+  "requiredContext": ["provider", "resource", "userId"]
+}
+```
+
+If a protected call forgets `userId`, it is rejected instead of silently falling outside a per-user policy. Tags can also be required with values such as `"tag:plan"`.
+
 ---
 
 # Dynamic per-user / per-project / per-agent budgets
@@ -485,6 +497,55 @@ ai-spend-guard plan \
 
 A pull request can therefore fail **before** code that creates an unacceptable worst-case AI bill reaches production.
 
+## Policy contract tests
+
+Cost policies are production behavior, so they should be testable like code.
+
+Create a policy test suite:
+
+```json
+{
+  "cases": [
+    {
+      "name": "spent user is denied",
+      "setup": [
+        {
+          "type": "record",
+          "context": {
+            "provider": "openai",
+            "resource": "llm",
+            "userId": "alice"
+          },
+          "actualCostUsd": 0.98
+        }
+      ],
+      "request": {
+        "context": {
+          "provider": "openai",
+          "resource": "llm",
+          "userId": "alice"
+        },
+        "estimatedCostUsd": 0.05
+      },
+      "expect": {
+        "allowed": false,
+        "blockingPolicyIds": ["every-user-daily-budget"]
+      }
+    }
+  ]
+}
+```
+
+Run it in CI:
+
+```bash
+ai-spend-guard test-policies \
+  --file policy-tests.json \
+  --config ai-spend-firewall.config.json
+```
+
+Every case runs against an isolated in-memory ledger. A failed contract exits with code **2**, so policy changes cannot silently weaken expected allow/deny behavior.
+
 ---
 
 # Configuration doctor
@@ -527,6 +588,7 @@ You get the matched policies, projected usage, warnings, and blocking reason.
 ```text
 status
 doctor
+test-policies
 explain
 reserve
 settle
@@ -777,11 +839,13 @@ JSON Schema is included for editor autocomplete and validation:
 
 - [Firewall config schema](schema/ai-spend-firewall.schema.json)
 - [Spend plan schema](schema/spend-plan.schema.json)
+- [Policy test schema](schema/policy-tests.schema.json)
 
 Example files:
 
 - [ai-spend-firewall.config.example.json](ai-spend-firewall.config.example.json)
 - [spend-plan.example.json](spend-plan.example.json)
+- [policy-tests.example.json](policy-tests.example.json)
 
 ---
 
@@ -808,6 +872,8 @@ Current implemented core:
 - idempotency protection
 - reserve/settle accounting
 - plan simulation
+- policy contract tests
+- required-context fail-closed enforcement
 - CLI doctor
 - stale-reservation inspection
 - Memory / JSON / SQLite storage
