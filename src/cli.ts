@@ -55,6 +55,16 @@ function optionalNum(flag: string): number | undefined {
   return parsed;
 }
 
+function optionalInteger(flag: string): number | undefined {
+  const raw = value(flag);
+  if (raw === undefined) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(`${flag} must be a non-negative integer`);
+  }
+  return parsed;
+}
+
 function configPath(): string {
   return value("--config") ?? "ai-spend-firewall.config.json";
 }
@@ -102,7 +112,7 @@ async function main(): Promise<void> {
     const daily = optionalNum("--daily");
     const monthly = optionalNum("--monthly");
     const maxCall = optionalNum("--max-call");
-    const maxConcurrent = optionalNum("--max-concurrent");
+    const maxConcurrent = optionalInteger("--max-concurrent");
     const perUserDaily = optionalNum("--per-user-daily");
     const perProjectMonthly = optionalNum("--per-project-monthly");
 
@@ -116,7 +126,7 @@ async function main(): Promise<void> {
     if (monthly !== undefined && monthlyPolicy) monthlyPolicy.limitUsd = monthly;
     if (maxCall !== undefined && dailyPolicy) dailyPolicy.maxOperationUsd = maxCall;
     if (maxConcurrent !== undefined && dailyPolicy) {
-      dailyPolicy.maxConcurrent = Math.floor(maxConcurrent);
+      dailyPolicy.maxConcurrent = maxConcurrent;
     }
 
     if (perUserDaily !== undefined) {
