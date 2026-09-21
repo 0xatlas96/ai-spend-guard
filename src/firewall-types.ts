@@ -80,6 +80,8 @@ export interface FirewallOptions {
 
 export interface FirewallConfig {
   policies: SpendPolicy[];
+  /** Context fields that every protected request must supply (after defaultProvider is applied). */
+  requiredContext?: readonly SpendGroupField[];
   /** Deny missing estimates by default; set allow only for intentionally unmetered calls. */
   unknownEstimate?: "deny" | "allow";
   /** Used when context.provider is omitted. Defaults to "custom". */
