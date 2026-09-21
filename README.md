@@ -449,7 +449,20 @@ const result = await firewall.protect(
 
 On success, actual spend is settled.
 
-On failure, the reservation is released.
+If the provider operation throws, AI Spend Guard **keeps the reservation open by default** because a timeout/error can be ambiguous: the provider may already have completed and billed the request. The thrown `SpendReconciliationRequiredError` contains the reservation ID so you can reconcile it safely.
+
+Only when your operation contract guarantees that a thrown error means **nothing billable happened** should you opt into automatic release:
+
+```ts
+await firewall.protect(
+  request,
+  operation,
+  calculateActualCost,
+  { onOperationError: "release" }
+);
+```
+
+A failure while calculating actual cost or settling the ledger also remains fail-closed; the reservation is not silently discarded.
 
 ---
 
