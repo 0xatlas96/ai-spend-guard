@@ -3,7 +3,9 @@ import { DuplicateOperationError, IdempotencyConflictError, SpendPolicyError } f
 import { normalizeContext, spendFingerprint } from "./fingerprint.js";
 import {
   contextForReservation,
+  contextFromPolicyGroup,
   evaluateSpendRequest,
+  listPolicyGroups,
   matchesPolicy,
   policyUsage,
   postSettlementViolations,
@@ -284,12 +286,35 @@ export class SpendFirewall {
               ? Infinity
               : 0
             : usage.projectedUsd / policy.limitUsd;
+        const groups = listPolicyGroups(state, policy).map((group) => {
+          const groupUsage = policyUsage(
+            state,
+            policy,
+            now,
+            contextFromPolicyGroup(group)
+          );
+          const groupRatio =
+            policy.limitUsd === undefined || policy.limitUsd === 0
+              ? policy.limitUsd === 0 && groupUsage.projectedUsd > 0
+                ? Infinity
+                : 0
+              : groupUsage.projectedUsd / policy.limitUsd;
+          return {
+            group,
+            usage: groupUsage,
+            warningThresholds: sanitizeWarnAt(policy.warnAt).filter(
+              (threshold) => groupRatio >= threshold
+            ),
+          };
+        });
+
         return {
           policy,
           usage,
           warningThresholds: sanitizeWarnAt(policy.warnAt).filter(
             (threshold) => ratio >= threshold
           ),
+          ...(groups.length ? { groups } : {}),
         };
       }),
       openReservations: reservations.length,
