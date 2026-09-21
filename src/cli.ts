@@ -201,10 +201,11 @@ async function main(): Promise<void> {
       throw new Error("--port must be an integer between 0 and 65535");
     }
 
+    const token = process.env.AI_SPEND_GUARD_TOKEN;
     const running = await startSpendGuardServer(firewall, {
       host,
       port,
-      token: process.env.AI_SPEND_GUARD_TOKEN,
+      ...(token ? { token } : {}),
       dashboard: !has("--no-dashboard"),
       log: (message) => console.error(message),
     });
