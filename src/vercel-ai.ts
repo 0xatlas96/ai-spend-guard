@@ -142,7 +142,7 @@ export function createVercelAiSpendMiddleware(
               params,
               model,
               spendContext: prepared.spendContext,
-              metadata: prepared.metadata,
+              ...(prepared.metadata ? { metadata: prepared.metadata } : {}),
               usage: result.usage,
               estimatedCostUsd: prepared.estimatedCostUsd,
               result,
@@ -290,7 +290,7 @@ export function createVercelAiSpendMiddleware(
                   params,
                   model,
                   spendContext: prepared.spendContext,
-                  metadata: prepared.metadata,
+                  ...(prepared.metadata ? { metadata: prepared.metadata } : {}),
                   usage: part.usage,
                   estimatedCostUsd: prepared.estimatedCostUsd,
                 })
@@ -356,7 +356,12 @@ async function prepareCall(
   const metadata = readMetadata(params);
   const base =
     typeof options.context === "function"
-      ? await options.context({ type, params, model, metadata })
+      ? await options.context({
+          type,
+          params,
+          model,
+          ...(metadata ? { metadata } : {}),
+        })
       : options.context ?? {};
 
   const spendContext: SpendContext = {
