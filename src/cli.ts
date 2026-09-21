@@ -6,6 +6,8 @@ import {
 } from "./config.js";
 import { inspectFirewallConfig } from "./doctor.js";
 import { SpendPolicyError } from "./firewall-errors.js";
+import { runPolicyTests } from "./policy-tests.js";
+import type { PolicyTestSuite } from "./policy-tests.js";
 import type {
   FirewallStatus,
   SpendPlan,
@@ -83,6 +85,31 @@ function spendRequestFromArgs(): SpendRequest {
 async function main(): Promise<void> {
   if (command === "help" || command === "--help" || command === "-h") {
     printHelp();
+    return;
+  }
+
+  if (command === "test-policies") {
+    const config = await loadFirewallConfig(configPath());
+    const file = required("--file");
+    const raw = await readFile(file, "utf8");
+    const suite = JSON.parse(raw) as PolicyTestSuite;
+    const result = await runPolicyTests(config, suite);
+
+    if (has("--json")) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(
+        `Policy tests ${result.suiteName ?? file}: ${result.passedCases} passed, ${result.failedCases} failed`
+      );
+      for (const testCase of result.cases) {
+        console.log(`${testCase.passed ? "PASS" : "FAIL"}  ${testCase.name}`);
+        for (const failure of testCase.failures) {
+          console.log(`      ${failure}`);
+        }
+      }
+    }
+
+    if (!result.passed) process.exitCode = 2;
     return;
   }
 
