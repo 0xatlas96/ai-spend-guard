@@ -389,17 +389,21 @@ export class SpendFirewall {
 
   private normalizeContextWithProvider(input: SpendContext | undefined): SpendContext {
     const context = normalizeContext(input);
-    const normalized = context.provider
-      ? context
-      : { ...context, provider: this.config.defaultProvider ?? "custom" };
+    const withConfiguredDefault =
+      context.provider || !this.config.defaultProvider
+        ? context
+        : { ...context, provider: this.config.defaultProvider };
 
     const missing = (this.config.requiredContext ?? []).filter(
-      (field) => !hasContextField(normalized, field)
+      (field) => !hasContextField(withConfiguredDefault, field)
     );
     if (missing.length) {
       throw new MissingSpendContextError([...missing]);
     }
-    return normalized;
+
+    return withConfiguredDefault.provider
+      ? withConfiguredDefault
+      : { ...withConfiguredDefault, provider: "custom" };
   }
 
   private async emitDecision(decision: FirewallDecision): Promise<void> {
