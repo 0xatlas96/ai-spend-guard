@@ -1,12 +1,36 @@
 export { AiSpendGuard, Reservation } from "./guard.js";
+export { SpendFirewall, FirewallReservation } from "./firewall.js";
 export { MemoryStore, JsonFileStore, emptyLedger } from "./store.js";
-export { createGuardFromConfig, loadConfig } from "./config.js";
-export { estimateTokenCostUsd } from "./cost.js";
+export {
+  createGuardFromConfig,
+  loadConfig,
+  createFirewallFromConfig,
+  loadFirewallConfig,
+} from "./config.js";
+export {
+  estimateTokenCostUsd,
+  estimateUnitCostUsd,
+  estimateDurationCostUsd,
+  estimateCompositeCostUsd,
+} from "./cost.js";
+export { simulateSpendPlan } from "./plan.js";
 export {
   AiSpendGuardError,
   BudgetExceededError,
   ReservationNotFoundError,
   UnknownEstimateError,
 } from "./errors.js";
+export {
+  DuplicateOperationError,
+  IdempotencyConflictError,
+  InvalidPolicyError,
+  PlanViolationError,
+  SpendPolicyError,
+} from "./firewall-errors.js";
 export type * from "./types.js";
-export type { TokenPricing, TokenUsage } from "./cost.js";
+export type * from "./firewall-types.js";
+export type {
+  CompositeCostPart,
+  TokenPricing,
+  TokenUsage,
+} from "./cost.js";
